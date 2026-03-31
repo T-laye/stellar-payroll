@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CheckCircle2, Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -9,7 +10,7 @@ import { AuthLegalFooter, AuthShell } from "@/components/auth/auth-ui";
 import { useVerifyEmail } from "@/hooks/auth.hook";
 import { routes } from "@/lib/utils/routes";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const token = searchParams.get("token") ?? "";
@@ -100,5 +101,13 @@ export default function VerifyEmailPage() {
 				)}
 			</div>
 		</AuthShell>
+	);
+}
+
+export default function VerifyEmailPage() {
+	return (
+		<Suspense fallback={null}>
+			<VerifyEmailContent />
+		</Suspense>
 	);
 }

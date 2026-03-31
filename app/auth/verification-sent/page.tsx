@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, Loader2, Mail, RefreshCw, PencilLine } from "lucide-react";
@@ -25,7 +25,7 @@ import {
 import { routes } from "@/lib/utils/routes";
 import { cn } from "@/lib/utils";
 
-export default function VerificationSentPage() {
+function VerificationSentContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const email = searchParams.get("email") ?? "";
@@ -171,5 +171,13 @@ export default function VerificationSentPage() {
 				</Button>
 			</div>
 		</AuthShell>
+	);
+}
+
+export default function VerificationSentPage() {
+	return (
+		<Suspense fallback={null}>
+			<VerificationSentContent />
+		</Suspense>
 	);
 }

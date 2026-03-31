@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,7 +22,7 @@ import { useResetPassword } from "@/hooks/auth.hook";
 import { routes } from "@/lib/utils/routes";
 import { cn } from "@/lib/utils";
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const token = searchParams.get("token") ?? "";
@@ -133,5 +134,13 @@ export default function ResetPasswordPage() {
 				</form>
 			)}
 		</AuthShell>
+	);
+}
+
+export default function ResetPasswordPage() {
+	return (
+		<Suspense fallback={null}>
+			<ResetPasswordContent />
+		</Suspense>
 	);
 }
