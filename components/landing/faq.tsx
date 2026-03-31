@@ -3,56 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import FadeUp from "../shared/FadeUp";
 
-// ─── Scroll Animation Hook ────────────────────────────────────────────────────
-function useInView(threshold = 0.15) {
-	const ref = useRef<HTMLDivElement>(null);
-	const [inView, setInView] = useState(false);
-
-	useEffect(() => {
-		const el = ref.current;
-		if (!el) return;
-		const observer = new IntersectionObserver(
-			([entry]) => {
-				if (entry.isIntersecting) {
-					setInView(true);
-					observer.disconnect();
-				}
-			},
-			{ threshold },
-		);
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, [threshold]);
-
-	return { ref, inView };
-}
-
-// ─── Animation Wrappers ───────────────────────────────────────────────────────
-function FadeUp({
-	children,
-	delay = 0,
-	className,
-}: {
-	children: React.ReactNode;
-	delay?: number;
-	className?: string;
-}) {
-	const { ref, inView } = useInView();
-	return (
-		<div
-			ref={ref}
-			className={className}
-			style={{
-				opacity: inView ? 1 : 0,
-				transform: inView ? "translateY(0)" : "translateY(32px)",
-				transition: `opacity 0.6s ease ${delay}ms, transform 0.6s ease ${delay}ms`,
-			}}
-		>
-			{children}
-		</div>
-	);
-}
 
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 const faqs = [

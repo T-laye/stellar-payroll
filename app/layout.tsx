@@ -10,12 +10,13 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'Stellar - Global Payroll Made Simple',
   description: 'Pay your global team in minutes with Stellar. Fast, secure, and transparent cross-border payments powered by blockchain.',
-  generator: 'v0.app',
+  // generator: 'v0.app',
   keywords: ['payroll', 'cross-border payments', 'global payments', 'blockchain', 'stellar'],
   openGraph: {
     title: 'Stellar - Global Payroll Made Simple',
     description: 'Pay your global team in minutes with Stellar',
     type: 'website',
+    
   },
   icons: {
     icon: [

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Zap } from "lucide-react";
 import Logo from "../ui/logo";
 
 // ─── FOOTER ───────────────────────────────────────────────────────────────────
