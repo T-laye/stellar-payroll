@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import FadeUp from "../shared/FadeUp";
+import { routes } from "../../lib/utils/routes";
 
 // ─── CTA ──────────────────────────────────────────────────────────────────────
 export function CTASection() {
@@ -31,7 +32,7 @@ export function CTASection() {
 									asChild
 									className="gap-2 group shadow-md shadow-primary/20"
 								>
-									<Link href="/signup">
+									<Link href={routes.authRoutes.SIGN_UP}>
 										Start Free Trial
 										<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
 									</Link>

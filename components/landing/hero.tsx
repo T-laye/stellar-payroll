@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Globe, Zap, Shield } from "lucide-react";
+import { routes } from "../../lib/utils/routes";
 
 export function HeroSection() {
 	const [mounted, setMounted] = useState(false);
@@ -82,7 +83,7 @@ export function HeroSection() {
 								asChild
 								className="gap-2 group shadow-md shadow-primary/20"
 							>
-								<Link href="/signup">
+								<Link href={routes.authRoutes.SIGN_UP}>
 									Get Started Now
 									<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
 								</Link>

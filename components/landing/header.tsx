@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Zap, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Logo from "../ui/logo";
+import { routes } from "../../lib/utils/routes";
 
 // ─── HEADER ──────────────────────────────────────────────────────────────────
 export function LandingHeader() {
@@ -59,10 +60,10 @@ export function LandingHeader() {
 				{/* Desktop Actions */}
 				<div className="hidden md:flex gap-3">
 					<Button variant="ghost" asChild>
-						<Link href="/signin">Sign In</Link>
+						<Link href={routes.authRoutes.SIGN_IN}>Sign In</Link>
 					</Button>
 					<Button asChild className="shadow-sm">
-						<Link href="/signup">Get Started</Link>
+						<Link href={routes.authRoutes.SIGN_UP}>Get Started</Link>
 					</Button>
 				</div>
 
@@ -104,12 +105,12 @@ export function LandingHeader() {
 					))}
 					<div className="flex gap-3 pt-3 border-t mt-2">
 						<Button variant="outline" asChild className="flex-1">
-							<Link href="/signin" onClick={handleNavClick}>
+							<Link href={routes.authRoutes.SIGN_IN} onClick={handleNavClick}>
 								Sign In
 							</Link>
 						</Button>
 						<Button asChild className="flex-1">
-							<Link href="/signup" onClick={handleNavClick}>
+							<Link href={routes.authRoutes.SIGN_UP} onClick={handleNavClick}>
 								Get Started
 							</Link>
 						</Button>

@@ -7,7 +7,12 @@
 
 // ─── signin/page.tsx ──────────────────────────────────────────────────────────
 
-import { useState, useEffect } from "react";
+import {
+	useState,
+	useEffect,
+	type InputHTMLAttributes,
+	type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -16,9 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { useAuthStore } from "@/lib/stores/auth-store";
-import { SigninSchema, SigninFormData } from "@/lib/schemas";
 import { SignupSchema, SignupFormData } from "@/lib/schemas";
+import { useSignup } from "@/hooks/auth.hook";
 import {
 	Select,
 	SelectContent,
@@ -27,17 +31,34 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "@/components/ui/command";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
+import {
 	Loader2,
 	Mail,
 	Lock,
 	Eye,
 	EyeOff,
-	Zap,
 	User,
+	Building2,
 	ShieldCheck,
 	ArrowRight,
+	Check,
+	ChevronsUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { countries, timezones } from "@/lib/utils/constants";
+import { routes } from "@/lib/utils/routes";
 import Logo from "../../../components/ui/logo";
 
 // ─── Shared: Animated background blobs ───────────────────────────────────────
@@ -51,26 +72,12 @@ function AuthBackground() {
 	);
 }
 
-// ─── Shared: Logo mark ───────────────────────────────────────────────────────
-function AuthLogo() {
-	return (
-		<Link href="/" className="inline-flex items-center gap-2.5 mb-8">
-			<div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
-				<Zap className="h-5 w-5 text-primary-foreground" />
-			</div>
-			<span className="font-bold text-xl text-foreground tracking-tight">
-				Stellar
-			</span>
-		</Link>
-	);
-}
-
 // ─── Shared: Password input with toggle ──────────────────────────────────────
 function PasswordInput({
 	placeholder = "••••••••",
 	className,
 	...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
+}: InputHTMLAttributes<HTMLInputElement>) {
 	const [show, setShow] = useState(false);
 	return (
 		<div className="relative">
@@ -101,7 +108,7 @@ function Field({
 }: {
 	label: string;
 	error?: string;
-	children: React.ReactNode;
+	children: ReactNode;
 }) {
 	return (
 		<div className="space-y-1.5">
@@ -118,7 +125,7 @@ function Field({
 }
 
 // ─── Shared: mount animation wrapper ─────────────────────────────────────────
-function MountFade({ children }: { children: React.ReactNode }) {
+function MountFade({ children }: { children: ReactNode }) {
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => {
 		const t = setTimeout(() => setMounted(true), 40);
@@ -140,21 +147,24 @@ function MountFade({ children }: { children: React.ReactNode }) {
 	);
 }
 
-function StepDot({ active, done }: { active: boolean; done: boolean }) {
-	return (
-		<div
-			className={cn(
-				"h-2 w-2 rounded-full transition-all duration-300",
-				done ? "bg-primary w-4" : active ? "bg-primary" : "bg-border",
-			)}
-		/>
-	);
-}
+// function StepDot({ active, done }: { active: boolean; done: boolean }) {
+// 	return (
+// 		<div
+// 			className={cn(
+// 				"h-2 w-2 rounded-full transition-all duration-300",
+// 				done ? "bg-primary w-4" : active ? "bg-primary" : "bg-border",
+// 			)}
+// 		/>
+// 	);
+// }
 
 export default function Page() {
 	const router = useRouter();
-	const [isLoading, setIsLoading] = useState(false);
-	const { signup } = useAuthStore();
+	const { mutateAsync: signup, isPending } = useSignup();
+	const [countryOpen, setCountryOpen] = useState(false);
+	const [countrySearch, setCountrySearch] = useState("");
+	const [timezoneOpen, setTimezoneOpen] = useState(false);
+	const [timezoneSearch, setTimezoneSearch] = useState("");
 
 	const {
 		register,
@@ -164,27 +174,47 @@ export default function Page() {
 		formState: { errors },
 	} = useForm<SignupFormData>({
 		resolver: zodResolver(SignupSchema),
-		defaultValues: { role: "admin" },
+		defaultValues: {
+			first_name: "",
+			last_name: "",
+			company_name: "",
+			company_country: "",
+			company_slug: "",
+			company_timezone: "Africa/Lagos",
+			email: "",
+			password: "",
+			confirmPassword: "",
+			role_slug: "admin",
+		},
 	});
 
-	const role = watch("role");
+	const role = watch("role_slug");
+	const selectedCountry = watch("company_country");
+	const selectedTimezone = watch("company_timezone");
+
+	const filteredCountries = countries.filter((country) =>
+		country.toLowerCase().includes(countrySearch.toLowerCase()),
+	);
+	const filteredTimezones = timezones.filter((timezone) =>
+		timezone.toLowerCase().includes(timezoneSearch.toLowerCase()),
+	);
 
 	const onSubmit = async (data: SignupFormData) => {
-		setIsLoading(true);
 		try {
-			await signup(data.email, data.password, data.name, data.role);
-			toast.success("Account created successfully!");
-			router.push("/dashboard");
+			await signup(data);
+			toast.success("Account created. Verify your email to continue.");
+			router.push(
+				`${routes.authRoutes.VERIFICATION_SENT}?email=${encodeURIComponent(data.email)}`,
+			);
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to sign up");
-		} finally {
-			setIsLoading(false);
 		}
 	};
 
 	const roleDescriptions: Record<string, string> = {
+		owner: "Owns the workspace and can manage billing, teams, and settings",
 		admin: "Full access to all features and settings",
-		"payroll-manager": "Manage payroll runs and employee data",
+		"hr-manager": "Manage people operations and payroll workflows",
 		viewer: "Read-only access to reports and data",
 	};
 
@@ -217,21 +247,37 @@ export default function Page() {
 								className="space-y-5"
 								noValidate
 							>
-								{/* Full Name */}
-								<Field label="Full Name" error={errors.name?.message}>
-									<div className="relative">
-										<User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-										<Input
-											{...register("name")}
-											type="text"
-											placeholder="John Doe"
-											className={cn(
-												"pl-9 bg-input border border-border transition-all focus:border-primary/50",
-												errors.name && "border-destructive",
-											)}
-										/>
-									</div>
-								</Field>
+								<div className="grid gap-5 sm:grid-cols-2">
+									<Field label="First Name" error={errors.first_name?.message}>
+										<div className="relative">
+											<User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+											<Input
+												{...register("first_name")}
+												type="text"
+												placeholder="John"
+												className={cn(
+													"pl-9 bg-input border border-border transition-all focus:border-primary/50",
+													errors.first_name && "border-destructive",
+												)}
+											/>
+										</div>
+									</Field>
+
+									<Field label="Last Name" error={errors.last_name?.message}>
+										<div className="relative">
+											<User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+											<Input
+												{...register("last_name")}
+												type="text"
+												placeholder="Doe"
+												className={cn(
+													"pl-9 bg-input border border-border transition-all focus:border-primary/50",
+													errors.last_name && "border-destructive",
+												)}
+											/>
+										</div>
+									</Field>
+								</div>
 
 								{/* Email */}
 								<Field label="Email" error={errors.email?.message}>
@@ -249,25 +295,211 @@ export default function Page() {
 									</div>
 								</Field>
 
+								<div className="grid gap-5 sm:grid-cols-2">
+									<Field
+										label="Company Name"
+										error={errors.company_name?.message}
+									>
+										<div className="relative">
+											<Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+											<Input
+												{...register("company_name")}
+												type="text"
+												placeholder="Acme Inc"
+												className={cn(
+													"pl-9 bg-input border border-border transition-all focus:border-primary/50",
+													errors.company_name && "border-destructive",
+												)}
+											/>
+										</div>
+									</Field>
+
+									<Field
+										label="Company Slug"
+										error={errors.company_slug?.message}
+									>
+										<div className="relative">
+											<Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+											<Input
+												{...register("company_slug")}
+												type="text"
+												placeholder="acme-inc"
+												className={cn(
+													"pl-9 bg-input border border-border transition-all focus:border-primary/50",
+													errors.company_slug && "border-destructive",
+												)}
+											/>
+										</div>
+									</Field>
+								</div>
+
+								<div className="grid gap-5 sm:grid-cols-2">
+									<Field
+										label="Company Country"
+										error={errors.company_country?.message}
+									>
+										<input type="hidden" {...register("company_country")} />
+										<Popover
+											open={countryOpen}
+											onOpenChange={setCountryOpen}
+										>
+											<PopoverTrigger asChild>
+												<Button
+													variant="outline"
+													role="combobox"
+													aria-expanded={countryOpen}
+													className={cn(
+														"w-full justify-between bg-input border border-border font-normal hover:bg-input",
+														errors.company_country && "border-destructive",
+													)}
+												>
+													<span
+														className={cn(
+															"truncate",
+															!selectedCountry && "text-muted-foreground",
+														)}
+													>
+														{selectedCountry || "Select country..."}
+													</span>
+													<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+												</Button>
+											</PopoverTrigger>
+											<PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+												<Command>
+													<CommandInput
+														placeholder="Search country..."
+														value={countrySearch}
+														onValueChange={setCountrySearch}
+													/>
+													<CommandList>
+														<CommandEmpty>No country found.</CommandEmpty>
+														<CommandGroup>
+															{filteredCountries.map((country) => (
+																<CommandItem
+																	key={country}
+																	value={country}
+																	onSelect={(value) => {
+																		setValue("company_country", value, {
+																			shouldValidate: true,
+																			shouldDirty: true,
+																		});
+																		setCountryOpen(false);
+																		setCountrySearch("");
+																	}}
+																>
+																	<Check
+																		className={cn(
+																			"mr-2 h-4 w-4",
+																			selectedCountry === country
+																				? "opacity-100"
+																				: "opacity-0",
+																		)}
+																	/>
+																	{country}
+																</CommandItem>
+															))}
+														</CommandGroup>
+													</CommandList>
+												</Command>
+											</PopoverContent>
+										</Popover>
+									</Field>
+
+									<Field
+										label="Company Timezone"
+										error={errors.company_timezone?.message}
+									>
+										<input type="hidden" {...register("company_timezone")} />
+										<Popover
+											open={timezoneOpen}
+											onOpenChange={setTimezoneOpen}
+										>
+											<PopoverTrigger asChild>
+												<Button
+													variant="outline"
+													role="combobox"
+													aria-expanded={timezoneOpen}
+													className={cn(
+														"w-full justify-between bg-input border border-border font-normal hover:bg-input",
+														errors.company_timezone && "border-destructive",
+													)}
+												>
+													<span
+														className={cn(
+															"truncate",
+															!selectedTimezone && "text-muted-foreground",
+														)}
+													>
+														{selectedTimezone || "Select timezone..."}
+													</span>
+													<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+												</Button>
+											</PopoverTrigger>
+											<PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+												<Command>
+													<CommandInput
+														placeholder="Search timezone..."
+														value={timezoneSearch}
+														onValueChange={setTimezoneSearch}
+													/>
+													<CommandList>
+														<CommandEmpty>No timezone found.</CommandEmpty>
+														<CommandGroup>
+															{filteredTimezones.map((timezone) => (
+																<CommandItem
+																	key={timezone}
+																	value={timezone}
+																	onSelect={(value) => {
+																		setValue("company_timezone", value, {
+																			shouldValidate: true,
+																			shouldDirty: true,
+																		});
+																		setTimezoneOpen(false);
+																		setTimezoneSearch("");
+																	}}
+																>
+																	<Check
+																		className={cn(
+																			"mr-2 h-4 w-4",
+																			selectedTimezone === timezone
+																				? "opacity-100"
+																				: "opacity-0",
+																		)}
+																	/>
+																	{timezone}
+																</CommandItem>
+															))}
+														</CommandGroup>
+													</CommandList>
+												</Command>
+											</PopoverContent>
+										</Popover>
+									</Field>
+								</div>
+
 								{/* Role */}
-								<Field label="Role" error={errors.role?.message}>
+								<Field label="Role" error={errors.role_slug?.message}>
 									<Select
 										value={role}
-										onValueChange={(value) => setValue("role", value as any)}
+										onValueChange={(value) =>
+											setValue(
+												"role_slug",
+												value as SignupFormData["role_slug"],
+											)
+										}
 									>
 										<SelectTrigger
 											className={cn(
 												"bg-input border border-border transition-all focus:border-primary/50",
-												errors.role && "border-destructive",
+												errors.role_slug && "border-destructive",
 											)}
 										>
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
+											<SelectItem value="owner">Owner</SelectItem>
 											<SelectItem value="admin">Admin</SelectItem>
-											<SelectItem value="payroll-manager">
-												Payroll Manager
-											</SelectItem>
+											<SelectItem value="hr-manager">HR Manager</SelectItem>
 											<SelectItem value="viewer">Viewer</SelectItem>
 										</SelectContent>
 									</Select>
@@ -315,10 +547,10 @@ export default function Page() {
 
 								<Button
 									type="submit"
-									disabled={isLoading}
+									disabled={isPending}
 									className="w-full mt-2 gap-2 group shadow-sm shadow-primary/20 transition-all active:scale-[0.98]"
 								>
-									{isLoading ? (
+									{isPending ? (
 										<>
 											<Loader2 className="w-4 h-4 animate-spin" />
 											Creating account...
@@ -365,7 +597,7 @@ export default function Page() {
 							<p className="text-center text-sm text-muted-foreground">
 								Already have an account?{" "}
 								<Link
-									href="/signin"
+									href={routes.authRoutes.SIGN_IN}
 									className="text-primary hover:text-primary/80 font-semibold transition-colors hover:underline underline-offset-2"
 								>
 									Sign in

@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import FadeUp from "../shared/FadeUp";
+import { routes } from "../../lib/utils/routes";
 
 // ─── PRICING ──────────────────────────────────────────────────────────────────
 const plans = [
@@ -127,7 +128,7 @@ export function PricingSection() {
 									variant={plan.highlighted ? "default" : "outline"}
 									asChild
 								>
-									<Link href="/signup">{plan.cta}</Link>
+									<Link href={routes.authRoutes.SIGN_UP}>{plan.cta}</Link>
 								</Button>
 
 								<div className="space-y-3 flex-1">

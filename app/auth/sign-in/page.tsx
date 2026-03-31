@@ -1,6 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+	useState,
+	useEffect,
+	type InputHTMLAttributes,
+	type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -11,6 +16,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { SigninSchema, SigninFormData } from "@/lib/schemas";
+import { routes } from "@/lib/utils/routes";
 
 import {
 	Loader2,
@@ -41,7 +47,7 @@ function PasswordInput({
 	placeholder = "••••••••",
 	className,
 	...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
+}: InputHTMLAttributes<HTMLInputElement>) {
 	const [show, setShow] = useState(false);
 	return (
 		<div className="relative">
@@ -72,7 +78,7 @@ function Field({
 }: {
 	label: string;
 	error?: string;
-	children: React.ReactNode;
+	children: ReactNode;
 }) {
 	return (
 		<div className="space-y-1.5">
@@ -89,7 +95,7 @@ function Field({
 }
 
 // ─── Shared: mount animation wrapper ─────────────────────────────────────────
-function MountFade({ children }: { children: React.ReactNode }) {
+function MountFade({ children }: { children: ReactNode }) {
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => {
 		const t = setTimeout(() => setMounted(true), 40);
@@ -198,7 +204,7 @@ export default function Page() {
 									{/* Forgot password */}
 									<div className="flex justify-end mt-1">
 										<Link
-											href="/forgot-password"
+											href={routes.authRoutes.FORGOT_PASSWORD}
 											className="text-xs text-primary hover:text-primary/80 transition-colors hover:underline"
 										>
 											Forgot password?
@@ -253,7 +259,7 @@ export default function Page() {
 							<p className="text-center text-sm text-muted-foreground">
 								Don't have an account?{" "}
 								<Link
-									href="/signup"
+									href={routes.authRoutes.SIGN_UP}
 									className="text-primary hover:text-primary/80 font-semibold transition-colors hover:underline underline-offset-2"
 								>
 									Sign up free

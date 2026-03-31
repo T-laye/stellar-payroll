@@ -9,9 +9,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 import { Users, Briefcase, Send, TrendingUp, ChevronRight } from "lucide-react";
+import FadeUp from "../../components/shared/FadeUp";
 import { cn } from "../../lib/utils";
 import StatusBadge from "../../components/shared/StatusBadge";
-import FadeUp from "../../components/shared/FadeUp";
 
 export default function DashboardPage() {
 	const [mounted, setMounted] = useState(false);
