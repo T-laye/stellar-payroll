@@ -46,6 +46,7 @@ interface AuthState {
 	redirect_url: string | null;
 	company_slug: string | null;
 	isAuthenticated: boolean;
+	_hydrated: boolean;
 	login: (email: string, password: string) => Promise<void>;
 	hydrateAuth: (response: AuthResponse, seed: AuthSeed) => void;
 	setUserProfile: (user: CurrentUserData) => void;
@@ -126,8 +127,8 @@ function getClaimsPermissions(claims: Record<string, unknown> | null) {
 		return [];
 	}
 
-	return permissions.filter((permission): permission is string =>
-		typeof permission === "string",
+	return permissions.filter(
+		(permission): permission is string => typeof permission === "string",
 	);
 }
 
@@ -182,7 +183,8 @@ function mapCurrentUserToStoreUser(
 
 function buildSession(response: AuthResponse): StoredAuthSession | null {
 	const responseData = response.data;
-	const accessToken = responseData?.session?.access_token ?? response.token ?? null;
+	const accessToken =
+		responseData?.session?.access_token ?? response.token ?? null;
 	const payToken = responseData?.session?.pay_token ?? null;
 	const verifyEmailToken =
 		responseData?.session?.verify_email_token ??
@@ -206,9 +208,12 @@ const initialState = {
 	redirect_url: null,
 	company_slug: null,
 	isAuthenticated: false,
+	_hydrated: false,
 };
 
-export function getUserDisplayName(user: Pick<User, "first_name" | "last_name" | "email"> | null) {
+export function getUserDisplayName(
+	user: Pick<User, "first_name" | "last_name" | "email"> | null,
+) {
 	if (!user) {
 		return "User";
 	}
@@ -314,6 +319,11 @@ export const useAuthStore = create<AuthState>()(
 				company_slug: state.company_slug,
 				isAuthenticated: state.isAuthenticated,
 			}),
+			onRehydrateStorage: () => (state) => {
+				if (state) {
+					state._hydrated = true;
+				}
+			},
 		},
 	),
 );

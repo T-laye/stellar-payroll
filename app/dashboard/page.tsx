@@ -30,7 +30,7 @@ import {
 import { useEmployeeStore } from "@/lib/stores/employee-store";
 import { usePaymentRequestStore } from "@/lib/stores/payment-request-store";
 import { usePayrollStore } from "@/lib/stores/payroll-store";
-import { cn } from "@/lib/utils";
+import { capitalizeWords, cn } from "@/lib/utils";
 import { routes } from "@/lib/utils/routes";
 import {
 	formatStatAmount,
@@ -592,7 +592,7 @@ export default function DashboardPage() {
 			<FadeUp>
 				<div>
 					<h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-						Welcome back, {firstName}
+						Welcome back, {capitalizeWords(firstName)}
 					</h1>
 					<p className="mt-1 text-sm text-muted-foreground">
 						{canViewCompanyDashboard

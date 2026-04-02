@@ -14,7 +14,7 @@ import {
 	LogOut,
 	ChevronRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { capitalizeWords, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
 	getUserDisplayName,
@@ -174,7 +174,7 @@ export function DashboardSidebar({
 							</div>
 							<div className="min-w-0 flex-1">
 								<p className="truncate text-sm font-medium text-foreground">
-									{displayName}
+									{capitalizeWords(displayName)}
 								</p>
 								<p className="truncate text-xs text-muted-foreground">
 									{user?.email}

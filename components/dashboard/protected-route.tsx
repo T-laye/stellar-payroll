@@ -1,29 +1,39 @@
-'use client';
+"use client";
 
-import { useAuthStore } from '@/lib/stores/auth-store';
-import { routes } from '@/lib/utils/routes';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { routes } from "@/lib/utils/routes";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import LoadingPage from "../shared/LoadingPage";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const user = useAuthStore((state) => state.user);
-  const router = useRouter();
+	const user = useAuthStore((state) => state.user);
+	const isHydrated = useAuthStore((state) => state._hydrated);
+	const router = useRouter();
 
-  useEffect(() => {
-    if (!user) {
-      router.push(routes.authRoutes.SIGN_IN);
-    }
-  }, [user, router]);
+	useEffect(() => {
+		// Only check authentication after hydration is complete
+		if (isHydrated && !user) {
+			router.push(routes.authRoutes.SIGN_IN);
+		}
+	}, [user, isHydrated, router]);
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-foreground/60">Redirecting...</p>
-        </div>
-      </div>
-    );
-  }
+	// Show loading while hydrating
+	if (!isHydrated) {
+		return (
+			<LoadingPage />
+		);
+	}
 
-  return <>{children}</>;
+	if (!user) {
+		return (
+			<div className="flex items-center justify-center min-h-screen">
+				<div className="text-center">
+					<p className="text-foreground/60">Redirecting...</p>
+				</div>
+			</div>
+		);
+	}
+
+	return <>{children}</>;
 }

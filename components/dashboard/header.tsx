@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Menu } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { capitalizeWords, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { getUserDisplayName, useAuthStore } from "@/lib/stores/auth-store";
 import { toast } from "sonner";
@@ -23,7 +23,7 @@ export function DashboardHeader({
 	const pathname = usePathname();
 
 	const pageTitle = (() => {
-		if (pathname === "/dashboard") return "Overview";
+		if (pathname === routes.dashboardRoutes.OVERVIEW) return "Overview";
 		const segment = pathname.split("/").pop() ?? "";
 		return (
 			segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ")
@@ -44,7 +44,9 @@ export function DashboardHeader({
 	return (
 		<header className="sticky top-0 z-40 border-b bg-card shadow-sm shadow-black/5">
 			<div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6 md:h-20">
-				<div className="flex items-center gap-3">
+				<div className="flex items-center gap-3 max-md:justify-between bg-red400 max-md:w-full max-md:mx-auto">
+					<Logo />
+
 					<Button
 						variant="ghost"
 						size="icon"
@@ -59,9 +61,6 @@ export function DashboardHeader({
 							)}
 						/>
 					</Button>
-
-					<Logo />
-
 					<div className="hidden items-center gap-3 md:flex">
 						<div className="h-5 w-px bg-border" />
 						<span className="text-sm font-medium text-muted-foreground">
@@ -77,9 +76,9 @@ export function DashboardHeader({
 						</span>
 					)}
 
-					<div className="hidden text-right sm:block">
+					{/* <div className="hidden text-right sm:block">
 						<p className="text-sm font-medium leading-tight text-foreground">
-							{displayName}
+							{capitalizeWords(displayName)}
 						</p>
 						<p className="text-xs leading-tight text-muted-foreground">
 							{user?.email}
@@ -90,7 +89,7 @@ export function DashboardHeader({
 						<span className="text-xs font-semibold text-primary">
 							{userInitial}
 						</span>
-					</div>
+					</div> */}
 
 					<Button
 						variant="ghost"
