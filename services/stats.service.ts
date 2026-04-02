@@ -4,6 +4,7 @@ import { getStoredAuthHeaders } from "@/lib/auth/session";
 export const STATS_ENDPOINTS = {
 	compliance: (companyId: string) => `/companies/${companyId}/stats/compliance`,
 	employees: (companyId: string) => `/companies/${companyId}/stats/employees`,
+	my: "/users/me/stats",
 	overview: (companyId: string) => `/companies/${companyId}/stats/overview`,
 	payroll: (companyId: string) => `/companies/${companyId}/stats/payroll`,
 	transactions: (companyId: string) =>
@@ -77,6 +78,14 @@ export interface OverviewStats {
 	wallets: OverviewWalletStats;
 }
 
+export interface MyStats {
+	last_payment_at: string | null;
+	total_payments_received: number;
+	total_received_all_time: string;
+	total_received_this_month: string;
+	transactions_by_status: Record<string, number>;
+}
+
 export interface DisbursedByMonth {
 	amount: string;
 	month: string;
@@ -138,6 +147,13 @@ export function getComplianceStats(companyId: string) {
 export function getEmployeeStats(companyId: string) {
 	return apiClient.get<StatsResponse<EmployeeStats>>(
 		STATS_ENDPOINTS.employees(companyId),
+		getAuthOptions(),
+	);
+}
+
+export function getMyStats() {
+	return apiClient.get<StatsResponse<MyStats>>(
+		STATS_ENDPOINTS.my,
 		getAuthOptions(),
 	);
 }

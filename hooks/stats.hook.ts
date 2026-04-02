@@ -7,6 +7,7 @@ import { useStatsStore } from "@/lib/stores/stats-store";
 import {
 	getComplianceStats,
 	getEmployeeStats,
+	getMyStats,
 	getOverviewStats,
 	getPayrollStats,
 	getTransactionStats,
@@ -82,6 +83,24 @@ export function useCompanyOverviewStats(companyId?: string) {
 			setOverviewStats(query.data.data);
 		}
 	}, [query.data, setOverviewStats]);
+
+	return query;
+}
+
+export function useMyStats() {
+	const setMyStats = useStatsStore((state) => state.setMyStats);
+
+	const query = useQuery({
+		queryKey: ["stats", "me"],
+		queryFn: getMyStats,
+		staleTime: 60_000,
+	});
+
+	useEffect(() => {
+		if (query.data?.data) {
+			setMyStats(query.data.data);
+		}
+	}, [query.data, setMyStats]);
 
 	return query;
 }

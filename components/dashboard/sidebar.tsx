@@ -16,23 +16,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { getUserDisplayName, useAuthStore } from "@/lib/stores/auth-store";
+import {
+	getUserDisplayName,
+	hasAnyPermission,
+	useAuthStore,
+} from "@/lib/stores/auth-store";
 import { toast } from "sonner";
 import { routes } from "@/lib/utils/routes";
-
-const navItems = [
-	{ label: "Overview", href: routes.dashboardRoutes.OVERVIEW, icon: BarChart3 },
-	{ label: "Employees", href: routes.dashboardRoutes.EMPLOYEES, icon: Users },
-	{
-		label: "Payroll Groups",
-		href: routes.dashboardRoutes.PAYROLL_GROUPS,
-		icon: Briefcase,
-	},
-	{ label: "Payments", href: routes.dashboardRoutes.PAYMENTS, icon: Send },
-	{ label: "Wallets", href: routes.dashboardRoutes.WALLETS, icon: Wallet },
-	{ label: "Roles", href: routes.dashboardRoutes.ROLES, icon: ShieldCheck },
-	{ label: "Settings", href: routes.dashboardRoutes.SETTINGS, icon: Settings },
-];
 
 interface DashboardSidebarProps {
 	isOpen?: boolean;
@@ -51,6 +41,60 @@ export function DashboardSidebar({
 	useEffect(() => {
 		setMounted(true);
 	}, []);
+
+	const navItems = [
+		{
+			label: "Overview",
+			href: routes.dashboardRoutes.OVERVIEW,
+			icon: BarChart3,
+			visible: true,
+		},
+		{
+			label: "Employees",
+			href: routes.dashboardRoutes.EMPLOYEES,
+			icon: Users,
+			visible: hasAnyPermission(user, ["*", "employees:read"]),
+		},
+		{
+			label: "Payroll Groups",
+			href: routes.dashboardRoutes.PAYROLL_GROUPS,
+			icon: Briefcase,
+			visible: hasAnyPermission(user, [
+				"*",
+				"payroll:read",
+				"payroll:create",
+				"payroll:update",
+				"payroll:approve",
+				"payroll:execute",
+				"payroll:cancel",
+				"company:update",
+			]),
+		},
+		{
+			label: "Payments",
+			href: routes.dashboardRoutes.PAYMENTS,
+			icon: Send,
+			visible: true,
+		},
+		{
+			label: "Wallets",
+			href: routes.dashboardRoutes.WALLETS,
+			icon: Wallet,
+			visible: true,
+		},
+		{
+			label: "Roles",
+			href: routes.dashboardRoutes.ROLES,
+			icon: ShieldCheck,
+			visible: hasAnyPermission(user, ["*", "roles:read", "roles:manage"]),
+		},
+		{
+			label: "Settings",
+			href: routes.dashboardRoutes.SETTINGS,
+			icon: Settings,
+			visible: true,
+		},
+	].filter((item) => item.visible);
 
 	const displayName = getUserDisplayName(user);
 	const userInitial = displayName.charAt(0).toUpperCase() || "U";

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
 	type ComplianceStats,
 	type EmployeeStats,
+	type MyStats,
 	type OverviewStats,
 	type PayrollStats,
 	type TransactionStats,
@@ -11,12 +12,14 @@ import {
 interface StatsState {
 	compliance: ComplianceStats | null;
 	employees: EmployeeStats | null;
+	my: MyStats | null;
 	overview: OverviewStats | null;
 	payroll: PayrollStats | null;
 	transactions: TransactionStats | null;
 	wallets: WalletStats | null;
 	setComplianceStats: (stats: ComplianceStats) => void;
 	setEmployeeStats: (stats: EmployeeStats) => void;
+	setMyStats: (stats: MyStats) => void;
 	setOverviewStats: (stats: OverviewStats) => void;
 	setPayrollStats: (stats: PayrollStats) => void;
 	setTransactionStats: (stats: TransactionStats) => void;
@@ -27,6 +30,7 @@ interface StatsState {
 const initialState = {
 	compliance: null,
 	employees: null,
+	my: null,
 	overview: null,
 	payroll: null,
 	transactions: null,
@@ -37,6 +41,7 @@ export const useStatsStore = create<StatsState>()((set) => ({
 	...initialState,
 	setComplianceStats: (compliance) => set({ compliance }),
 	setEmployeeStats: (employees) => set({ employees }),
+	setMyStats: (my) => set({ my }),
 	setOverviewStats: (overview) => set({ overview }),
 	setPayrollStats: (payroll) => set({ payroll }),
 	setTransactionStats: (transactions) => set({ transactions }),

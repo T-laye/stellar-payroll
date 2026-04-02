@@ -41,8 +41,6 @@ export function getStoredAuthHeaders(session?: StoredAuthSession | null) {
 	const storedSession = session ?? getStoredAuthSession();
 	const headers: Record<string, string> = {};
 
-	console.log(storedSession);
-
 	if (storedSession?.access_token) {
 		headers.Authorization = `Bearer ${storedSession.access_token}`;
 	}

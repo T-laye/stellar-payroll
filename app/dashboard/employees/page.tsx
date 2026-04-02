@@ -56,8 +56,28 @@ import {
 	sumStatRecord,
 } from "@/lib/utils/stats";
 import { toast } from "sonner";
+import { hasAnyPermission, useAuthStore } from "@/lib/stores/auth-store";
 
 export default function EmployeesPage() {
+	const user = useAuthStore((state) => state.user);
+	const canViewEmployees = hasAnyPermission(user, ["*", "employees:read"]);
+
+	if (!canViewEmployees) {
+		return (
+			<div className="flex items-center justify-center min-h-100">
+				<div className="text-center">
+					<Users className="mx-auto h-12 w-12 text-muted-foreground" />
+					<h2 className="mt-4 text-lg font-semibold text-foreground">
+						Access Denied
+					</h2>
+					<p className="mt-2 text-sm text-muted-foreground">
+						You don't have permission to view employee information.
+					</p>
+				</div>
+			</div>
+		);
+	}
+
 	const employees = useEmployeeStore((state) => state.employees);
 	const employeeWallets = useEmployeeStore((state) => state.employeeWallets);
 	const employeeQuery = useCompanyEmployees();

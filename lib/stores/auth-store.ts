@@ -5,7 +5,12 @@ import {
 	clearStoredAuthSession,
 	StoredAuthSession,
 } from "@/lib/auth/session";
-import { signIn, signOut, type AuthResponse, type AuthUserResponse } from "@/services/auth.service";
+import {
+	signIn,
+	signOut,
+	type AuthResponse,
+	type AuthUserResponse,
+} from "@/services/auth.service";
 import { type CurrentUserData } from "@/services/user.service";
 
 export type UserRole = "owner" | "admin" | "hr-manager" | "viewer";
@@ -15,6 +20,7 @@ export interface User {
 	email: string;
 	first_name: string;
 	last_name: string;
+	permissions: string[];
 	role_name: string;
 	role_id?: string;
 	company?: string;
@@ -113,6 +119,18 @@ function getFallbackLastName(seed: AuthSeed, user?: AuthUserResponse) {
 	return user?.last_name?.trim() || seed.last_name?.trim() || "";
 }
 
+function getClaimsPermissions(claims: Record<string, unknown> | null) {
+	const permissions = claims?.permissions;
+
+	if (!Array.isArray(permissions)) {
+		return [];
+	}
+
+	return permissions.filter((permission): permission is string =>
+		typeof permission === "string",
+	);
+}
+
 function buildUser(response: AuthResponse, seed: AuthSeed): User {
 	const responseData = response.data;
 	const responseUser = responseData?.user ?? response.user;
@@ -131,6 +149,7 @@ function buildUser(response: AuthResponse, seed: AuthSeed): User {
 		email: responseUser?.email || seed.email,
 		first_name: getFallbackFirstName(seed, responseUser),
 		last_name: getFallbackLastName(seed, responseUser),
+		permissions: getClaimsPermissions(claims),
 		role_name: toRoleName(responseUser?.role_name ?? roleSlug),
 		company:
 			responseUser?.company_name ||
@@ -149,6 +168,7 @@ function mapCurrentUserToStoreUser(
 		email: currentUser.email,
 		first_name: currentUser.first_name,
 		last_name: currentUser.last_name,
+		permissions: existingUser?.permissions ?? [],
 		role_name: currentUser.role_name,
 		role_id: currentUser.role_id,
 		company: existingUser?.company,
@@ -196,6 +216,26 @@ export function getUserDisplayName(user: Pick<User, "first_name" | "last_name" |
 	const fullName = `${user.first_name} ${user.last_name}`.trim();
 
 	return fullName || user.email || "User";
+}
+
+export function getUserPermissions(user: Pick<User, "permissions"> | null) {
+	return user?.permissions ?? [];
+}
+
+export function hasPermission(
+	user: Pick<User, "permissions"> | null,
+	permission: string,
+) {
+	const permissions = getUserPermissions(user);
+
+	return permissions.includes("*") || permissions.includes(permission);
+}
+
+export function hasAnyPermission(
+	user: Pick<User, "permissions"> | null,
+	permissions: string[],
+) {
+	return permissions.some((permission) => hasPermission(user, permission));
 }
 
 export const useAuthStore = create<AuthState>()(

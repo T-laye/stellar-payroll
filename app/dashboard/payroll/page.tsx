@@ -59,6 +59,7 @@ import {
 	sumStatRecord,
 } from "@/lib/utils/stats";
 import { toast } from "sonner";
+import { hasAnyPermission, useAuthStore } from "@/lib/stores/auth-store";
 
 function formatDateTime(value: string | null | undefined) {
 	if (!value) {
@@ -80,6 +81,34 @@ function formatDateTime(value: string | null | undefined) {
 }
 
 export default function PayrollPage() {
+	const user = useAuthStore((state) => state.user);
+	const canViewPayroll = hasAnyPermission(user, [
+		"*",
+		"payroll:read",
+		"payroll:create",
+		"payroll:update",
+		"payroll:approve",
+		"payroll:execute",
+		"payroll:cancel",
+		"company:update",
+	]);
+
+	if (!canViewPayroll) {
+		return (
+			<div className="flex items-center justify-center min-h-100">
+				<div className="text-center">
+					<Briefcase className="mx-auto h-12 w-12 text-muted-foreground" />
+					<h2 className="mt-4 text-lg font-semibold text-foreground">
+						Access Denied
+					</h2>
+					<p className="mt-2 text-sm text-muted-foreground">
+						You don't have permission to view payroll information.
+					</p>
+				</div>
+			</div>
+		);
+	}
+
 	useCompanyDetails();
 	const groups = usePayrollStore((state) => state.groups);
 	const runs = usePayrollStore((state) => state.runs);
@@ -103,7 +132,9 @@ export default function PayrollPage() {
 	const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
 	const [editingRunId, setEditingRunId] = useState<string | null>(null);
 	const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
-	const [transactionsRunId, setTransactionsRunId] = useState<string | null>(null);
+	const [transactionsRunId, setTransactionsRunId] = useState<string | null>(
+		null,
+	);
 
 	const editingGroup = editingGroupId
 		? groups.find((group) => group.id === editingGroupId)
@@ -117,7 +148,9 @@ export default function PayrollPage() {
 	const transactionRun = transactionsRunId
 		? runs.find((run) => run.id === transactionsRunId)
 		: undefined;
-	const transactionsQuery = usePayrollRunTransactions(transactionsRunId ?? undefined);
+	const transactionsQuery = usePayrollRunTransactions(
+		transactionsRunId ?? undefined,
+	);
 	const payrollStats = payrollStatsQuery.data?.data;
 	const runsByStatus = Object.entries(payrollStats?.runs_by_status ?? {});
 	const disbursedByMonth = payrollStats?.disbursed_by_month.slice(-6) ?? [];
@@ -182,7 +215,9 @@ export default function PayrollPage() {
 			}
 		} catch (error) {
 			toast.error(
-				error instanceof Error ? error.message : `Failed to ${action} payroll run.`,
+				error instanceof Error
+					? error.message
+					: `Failed to ${action} payroll run.`,
 			);
 		}
 	};
@@ -220,14 +255,19 @@ export default function PayrollPage() {
 							<DialogContent className="sm:max-w-2xl">
 								<DialogHeader>
 									<DialogTitle>
-										{editingGroup ? "Edit Payroll Group" : "Create Payroll Group"}
+										{editingGroup
+											? "Edit Payroll Group"
+											: "Create Payroll Group"}
 									</DialogTitle>
 									<DialogDescription>
 										Configure a payroll group with its own pay cycle, timezone,
 										and settlement currency.
 									</DialogDescription>
 								</DialogHeader>
-								<PayrollForm group={editingGroup} onSuccess={handleGroupSuccess} />
+								<PayrollForm
+									group={editingGroup}
+									onSuccess={handleGroupSuccess}
+								/>
 							</DialogContent>
 						</Dialog>
 
@@ -249,8 +289,8 @@ export default function PayrollPage() {
 										{editingRun ? "Edit Payroll Run" : "Create Payroll Run"}
 									</DialogTitle>
 									<DialogDescription>
-										Create a draft payroll run for a group, then route it through
-										approval and execution.
+										Create a draft payroll run for a group, then route it
+										through approval and execution.
 									</DialogDescription>
 								</DialogHeader>
 								<PayrollRunForm
@@ -304,7 +344,9 @@ export default function PayrollPage() {
 							},
 							{
 								label: "Runs Tracked",
-								value: formatStatNumber(sumStatRecord(payrollStats.runs_by_status)),
+								value: formatStatNumber(
+									sumStatRecord(payrollStats.runs_by_status),
+								),
 								icon: ReceiptText,
 							},
 							{
@@ -584,7 +626,10 @@ export default function PayrollPage() {
 													value: formatStatDate(run.created_at),
 												},
 											].map((item) => (
-												<div key={item.label} className="rounded-xl bg-background p-3">
+												<div
+													key={item.label}
+													className="rounded-xl bg-background p-3"
+												>
 													<p className="text-xs text-muted-foreground">
 														{item.label}
 													</p>
@@ -739,7 +784,10 @@ export default function PayrollPage() {
 					)}
 
 					<DialogFooter>
-						<Button variant="outline" onClick={() => setTransactionsRunId(null)}>
+						<Button
+							variant="outline"
+							onClick={() => setTransactionsRunId(null)}
+						>
 							Close
 						</Button>
 					</DialogFooter>

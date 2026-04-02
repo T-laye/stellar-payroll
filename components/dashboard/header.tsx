@@ -22,8 +22,6 @@ export function DashboardHeader({
 	const router = useRouter();
 	const pathname = usePathname();
 
-	console.log(user);
-
 	const pageTitle = (() => {
 		if (pathname === "/dashboard") return "Overview";
 		const segment = pathname.split("/").pop() ?? "";

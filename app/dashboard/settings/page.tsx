@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useAuthStore } from "@/lib/stores/auth-store";
+import { useAuthStore, hasAnyPermission } from "@/lib/stores/auth-store";
 import { useCurrentUser, useUpdateCurrentUser } from "@/hooks/user.hook";
 import { useCompanyDetails, useUpdateCompany } from "@/hooks/company.hook";
 import { useCompanyStore } from "@/lib/stores/company-store";
@@ -179,7 +179,9 @@ function SettingsCard({
 	const isDanger = accent === "danger";
 
 	return (
-		<Card className={cn("overflow-hidden", isDanger && "border-destructive/20")}>
+		<Card
+			className={cn("overflow-hidden", isDanger && "border-destructive/20")}
+		>
 			<div
 				className={cn(
 					"flex items-center gap-3 border-b px-5 py-4 sm:px-6",
@@ -766,6 +768,9 @@ function PasswordForm() {
 }
 
 export default function SettingsPage() {
+	const user = useAuthStore((state) => state.user);
+	const canManageCompany = hasAnyPermission(user, ["*", "company:update"]);
+
 	const handleComingSoon = (feature: string) => {
 		toast.info(`${feature} coming soon`, {
 			description: "This feature is currently under development.",
@@ -780,23 +785,26 @@ export default function SettingsPage() {
 						Settings
 					</h1>
 					<p className="mt-1 text-sm text-muted-foreground">
-						Manage your account details, company profile, password, and personal
-						security preferences.
+						Manage your account details
+						{canManageCompany ? ", company profile" : ""}, password, and
+						personal security preferences.
 					</p>
 				</div>
 			</FadeUp>
 
-			<FadeUp delay={60}>
-				<SettingsCard
-					icon={Building}
-					title="Company Profile"
-					description="Update company information used across payroll operations"
-				>
-					<CompanyForm />
-				</SettingsCard>
-			</FadeUp>
+			{canManageCompany && (
+				<FadeUp delay={60}>
+					<SettingsCard
+						icon={Building}
+						title="Company Profile"
+						description="Update company information used across payroll operations"
+					>
+						<CompanyForm />
+					</SettingsCard>
+				</FadeUp>
+			)}
 
-			<FadeUp delay={120}>
+			<FadeUp delay={canManageCompany ? 120 : 60}>
 				<SettingsCard
 					icon={User}
 					title="Account Information"
@@ -806,7 +814,7 @@ export default function SettingsPage() {
 				</SettingsCard>
 			</FadeUp>
 
-			<FadeUp delay={180}>
+			<FadeUp delay={canManageCompany ? 180 : 120}>
 				<SettingsCard
 					icon={Key}
 					title="Security"
