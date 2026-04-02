@@ -1,8 +1,10 @@
 import { apiClient } from "@/lib/api/client";
+import { getStoredAuthSession, type StoredAuthSession } from "@/lib/auth/session";
 import {
 	ChangeVerificationEmailFormData,
 	ForgotPasswordFormData,
 	ResetPasswordFormData,
+	SigninFormData,
 	SignupFormData,
 } from "@/lib/schemas";
 
@@ -17,15 +19,43 @@ export const AUTH_ENDPOINTS = {
 	RESEND_VERIFICATION: "/auth/resend-verification",
 	CHANGE_VERIFICATION_EMAIL: "/auth/change-verification-email",
 	VERIFY_EMAIL: "/auth/verify-email",
-	GET_USER: "/auth/me",
 	SIGN_OUT: "/auth/logout",
 } as const;
 
+export interface AuthSessionResponse {
+	access_token?: string;
+	pay_token?: string;
+	verify_email_token?: string;
+}
+
+export interface AuthUserResponse {
+	id?: string;
+	email?: string;
+	first_name?: string;
+	last_name?: string;
+	role_slug?: string;
+	company_name?: string;
+	company_slug?: string;
+}
+
+export interface AuthResponseData {
+	company_slug?: string;
+	redirect_url?: string;
+	session?: AuthSessionResponse;
+	verify_email_token?: string;
+	user?: AuthUserResponse;
+}
+
 export interface AuthResponse {
+	statusCode?: number;
 	message?: string;
-	data?: unknown;
-	user?: unknown;
+	data?: AuthResponseData;
+	user?: AuthUserResponse;
 	token?: string;
+}
+
+export function signIn(payload: SigninFormData) {
+	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.SIGN_IN, payload);
 }
 
 export function signup(payload: SignupFormData) {
@@ -55,4 +85,21 @@ export function changeVerificationEmail(payload: ChangeVerificationEmailFormData
 
 export function verifyEmail(payload: { token: string; email?: string }) {
 	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.VERIFY_EMAIL, payload);
+}
+
+export function signOut(session?: StoredAuthSession | null) {
+	const storedSession = session ?? getStoredAuthSession();
+	const headers: Record<string, string> = {};
+
+	if (storedSession?.access_token) {
+		headers.access_token = storedSession.access_token;
+	}
+
+	if (storedSession?.pay_token) {
+		headers.pay_token = storedSession.pay_token;
+	}
+
+	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.SIGN_OUT, undefined, {
+		headers,
+	});
 }

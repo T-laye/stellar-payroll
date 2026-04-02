@@ -19,7 +19,7 @@ export const SignupSchema = z
 		company_slug: z.string().min(2, "Company slug must be at least 2 characters"),
 		company_timezone: z.string().min(2, "Company timezone must be at least 2 characters"),
 		email: z.string().email("Invalid email address"),
-		password: z.string().min(6, "Password must be at least 6 characters"),
+		password: z.string().min(8, "Password must be at least 8 characters"),
 		confirmPassword: z.string(),
 		role_slug: z.enum(["owner", "admin", "hr-manager", "viewer"]),
 	})

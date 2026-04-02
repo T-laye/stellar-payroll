@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { toast } from "sonner";
 import Logo from "../ui/logo";
+import { routes } from "../../lib/utils/routes";
 
 interface DashboardHeaderProps {
 	onMenuClick?: () => void;
@@ -30,12 +31,12 @@ export function DashboardHeader({
 		);
 	})();
 
-	const handleLogout = () => {
-		logout();
+	const handleLogout = async () => {
+		await logout();
 		toast.success("Signed out successfully", {
 			description: "See you next time!",
 		});
-		router.push("/");
+		router.push(routes.authRoutes.SIGN_IN);
 	};
 
 	return (

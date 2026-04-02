@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { routes } from '@/lib/utils/routes';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -10,7 +11,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) {
-      router.push('/signin');
+      router.push(routes.authRoutes.SIGN_IN);
     }
   }, [user, router]);
 

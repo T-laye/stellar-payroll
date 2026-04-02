@@ -6,6 +6,7 @@ import {
 	forgotPassword,
 	resetPassword,
 	resendVerificationEmail,
+	signIn,
 	signup,
 	verifyEmail,
 } from "@/services/auth.service";
@@ -13,13 +14,39 @@ import {
 	ChangeVerificationEmailFormData,
 	ForgotPasswordFormData,
 	ResetPasswordFormData,
+	SigninFormData,
 	SignupFormData,
 } from "@/lib/schemas";
+import { useAuthStore } from "@/lib/stores/auth-store";
+
+export function useLogin() {
+	return useMutation({
+		mutationKey: ["auth", "login"],
+		mutationFn: (payload: SigninFormData) => signIn(payload),
+		onSuccess: (response, variables) => {
+			useAuthStore.getState().hydrateAuth(response, {
+				email: variables.email,
+			});
+		},
+	});
+}
 
 export function useSignup() {
 	return useMutation({
 		mutationKey: ["auth", "signup"],
 		mutationFn: (payload: SignupFormData) => signup(payload),
+		onSuccess: (response, variables) => {
+			useAuthStore.getState().hydrateAuth(response, {
+				email: variables.email,
+				first_name: variables.first_name,
+				last_name: variables.last_name,
+				role_slug: variables.role_slug,
+				company_name: variables.company_name,
+				company_slug: variables.company_slug,
+			});
+
+			console.log("Signup response:", response);
+		},
 	});
 }
 
@@ -42,7 +69,8 @@ export function useResetPassword() {
 export function useResendVerificationEmail() {
 	return useMutation({
 		mutationKey: ["auth", "resend-verification-email"],
-		mutationFn: (payload: { email: string }) => resendVerificationEmail(payload),
+		mutationFn: (payload: { email: string }) =>
+			resendVerificationEmail(payload),
 	});
 }
 
@@ -59,5 +87,8 @@ export function useVerifyEmail() {
 		mutationKey: ["auth", "verify-email"],
 		mutationFn: (payload: { token: string; email?: string }) =>
 			verifyEmail(payload),
+		// onSuccess: (data) => {
+		// 	// console.log("Email verification successful:", data);
+		// },
 	});
 }

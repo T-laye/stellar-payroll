@@ -27,7 +27,7 @@ function VerifyEmailContent() {
 		try {
 			await submitVerification({ token, email: email || undefined });
 			toast.success("Email verified successfully.");
-			router.push(routes.authRoutes.SIGN_IN);
+			// router.push(routes.authRoutes.SIGN_IN);
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "Failed to verify email",

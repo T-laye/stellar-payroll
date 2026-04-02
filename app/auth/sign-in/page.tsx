@@ -14,8 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { useAuthStore } from "@/lib/stores/auth-store";
 import { SigninSchema, SigninFormData } from "@/lib/schemas";
+import { useLogin } from "@/hooks/auth.hook";
 import { routes } from "@/lib/utils/routes";
 
 import {
@@ -119,8 +119,7 @@ function MountFade({ children }: { children: ReactNode }) {
 
 export default function Page() {
 	const router = useRouter();
-	const [isLoading, setIsLoading] = useState(false);
-	const { login } = useAuthStore();
+	const { mutateAsync: login, isPending } = useLogin();
 
 	const {
 		register,
@@ -131,15 +130,12 @@ export default function Page() {
 	});
 
 	const onSubmit = async (data: SigninFormData) => {
-		setIsLoading(true);
 		try {
-			await login(data.email, data.password);
+			await login(data);
 			toast.success("Signed in successfully!");
 			router.push("/dashboard");
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to sign in");
-		} finally {
-			setIsLoading(false);
 		}
 	};
 
@@ -214,10 +210,10 @@ export default function Page() {
 
 								<Button
 									type="submit"
-									disabled={isLoading}
+									disabled={isPending}
 									className="w-full mt-2 gap-2 group shadow-sm shadow-primary/20 transition-all active:scale-[0.98]"
 								>
-									{isLoading ? (
+									{isPending ? (
 										<>
 											<Loader2 className="w-4 h-4 animate-spin" />
 											Signing in...

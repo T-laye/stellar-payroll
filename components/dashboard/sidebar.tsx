@@ -44,8 +44,8 @@ export function DashboardSidebar({
 		setMounted(true);
 	}, []);
 
-	const handleLogout = () => {
-		logout();
+	const handleLogout = async () => {
+		await logout();
 		toast.success("Signed out successfully", {
 			description: "See you next time!",
 		});
@@ -171,6 +171,5 @@ export function DashboardSidebar({
 		</>
 	);
 }
-
 
 

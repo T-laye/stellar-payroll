@@ -12,6 +12,7 @@ import { Users, Briefcase, Send, TrendingUp, ChevronRight } from "lucide-react";
 import FadeUp from "../../components/shared/FadeUp";
 import { cn } from "../../lib/utils";
 import StatusBadge from "../../components/shared/StatusBadge";
+import { routes } from "../../lib/utils/routes";
 
 export default function DashboardPage() {
 	const [mounted, setMounted] = useState(false);
@@ -36,7 +37,7 @@ export default function DashboardPage() {
 			icon: Users,
 			color: "text-blue-600",
 			bg: "bg-blue-50 dark:bg-blue-900/20",
-			href: "/dashboard/employees",
+			href: routes.dashboardRoutes.EMPLOYEES,
 		},
 		{
 			label: "Payroll Groups",
@@ -44,7 +45,7 @@ export default function DashboardPage() {
 			icon: Briefcase,
 			color: "text-purple-600",
 			bg: "bg-purple-50 dark:bg-purple-900/20",
-			href: "/dashboard/payroll",
+			href: routes.dashboardRoutes.PAYROLL_GROUPS,
 		},
 		{
 			label: "Pending Payments",
@@ -52,7 +53,7 @@ export default function DashboardPage() {
 			icon: Send,
 			color: "text-orange-600",
 			bg: "bg-orange-50 dark:bg-orange-900/20",
-			href: "/dashboard/payments",
+			href: routes.dashboardRoutes.PAYMENTS,
 		},
 		{
 			label: "Completed",
@@ -60,7 +61,7 @@ export default function DashboardPage() {
 			icon: TrendingUp,
 			color: "text-green-600",
 			bg: "bg-green-50 dark:bg-green-900/20",
-			href: "/dashboard/payments",
+			href: routes.dashboardRoutes.PAYMENTS,
 		},
 	];
 
@@ -81,13 +82,13 @@ export default function DashboardPage() {
 			</FadeUp>
 
 			{/* Stats */}
-			<div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+			<div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
 				{stats.map((stat, i) => {
 					const Icon = stat.icon;
 					return (
 						<FadeUp key={stat.label} delay={i * 60}>
 							<Link href={stat.href}>
-								<Card className="p-4 sm:p-5 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group">
+								<Card className="p-4 sm:p-5 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group h-full">
 									<div className="flex items-start justify-between gap-2">
 										<div>
 											<p className="text-xs sm:text-sm text-muted-foreground">

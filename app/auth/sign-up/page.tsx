@@ -160,7 +160,7 @@ function MountFade({ children }: { children: ReactNode }) {
 
 export default function Page() {
 	const router = useRouter();
-	const { mutateAsync: signup, isPending } = useSignup();
+	const { mutateAsync: signup, isPending, data } = useSignup();
 	const [countryOpen, setCountryOpen] = useState(false);
 	const [countrySearch, setCountrySearch] = useState("");
 	const [timezoneOpen, setTimezoneOpen] = useState(false);
@@ -325,7 +325,7 @@ export default function Page() {
 												type="text"
 												placeholder="acme-inc"
 												className={cn(
-													"pl-9 bg-input border border-border transition-all focus:border-primary/50",
+													"pl-9 bg-input border border-border transition-all lowercase focus:border-primary/50",
 													errors.company_slug && "border-destructive",
 												)}
 											/>
@@ -339,10 +339,7 @@ export default function Page() {
 										error={errors.company_country?.message}
 									>
 										<input type="hidden" {...register("company_country")} />
-										<Popover
-											open={countryOpen}
-											onOpenChange={setCountryOpen}
-										>
+										<Popover open={countryOpen} onOpenChange={setCountryOpen}>
 											<PopoverTrigger asChild>
 												<Button
 													variant="outline"
@@ -364,7 +361,10 @@ export default function Page() {
 													<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
 												</Button>
 											</PopoverTrigger>
-											<PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+											<PopoverContent
+												className="w-(--radix-popover-trigger-width) p-0"
+												align="start"
+											>
 												<Command>
 													<CommandInput
 														placeholder="Search country..."
@@ -410,10 +410,7 @@ export default function Page() {
 										error={errors.company_timezone?.message}
 									>
 										<input type="hidden" {...register("company_timezone")} />
-										<Popover
-											open={timezoneOpen}
-											onOpenChange={setTimezoneOpen}
-										>
+										<Popover open={timezoneOpen} onOpenChange={setTimezoneOpen}>
 											<PopoverTrigger asChild>
 												<Button
 													variant="outline"
@@ -435,7 +432,10 @@ export default function Page() {
 													<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
 												</Button>
 											</PopoverTrigger>
-											<PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+											<PopoverContent
+												className="w-(--radix-popover-trigger-width) p-0"
+												align="start"
+											>
 												<Command>
 													<CommandInput
 														placeholder="Search timezone..."
