@@ -44,8 +44,6 @@ export function useSignup() {
 				company_name: variables.company_name,
 				company_slug: variables.company_slug,
 			});
-
-			console.log("Signup response:", response);
 		},
 	});
 }

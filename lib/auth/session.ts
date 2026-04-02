@@ -37,6 +37,23 @@ export function getStoredAuthSession() {
 	return readPersistedAuthSnapshot()?.state?.session ?? null;
 }
 
+export function getStoredAuthHeaders(session?: StoredAuthSession | null) {
+	const storedSession = session ?? getStoredAuthSession();
+	const headers: Record<string, string> = {};
+
+	console.log(storedSession);
+
+	if (storedSession?.access_token) {
+		headers.Authorization = `Bearer ${storedSession.access_token}`;
+	}
+
+	if (storedSession?.pay_token) {
+		headers["X-Pay-Token"] = storedSession.pay_token;
+	}
+
+	return headers;
+}
+
 export function clearStoredAuthSession() {
 	if (typeof window === "undefined") {
 		return;

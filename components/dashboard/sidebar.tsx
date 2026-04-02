@@ -2,28 +2,32 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
 	Users,
 	Briefcase,
 	Send,
 	BarChart3,
 	Settings,
-	X,
 	LogOut,
 	ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useAuthStore } from "@/lib/stores/auth-store";
+import { getUserDisplayName, useAuthStore } from "@/lib/stores/auth-store";
 import { toast } from "sonner";
+import { routes } from "@/lib/utils/routes";
 
 const navItems = [
-	{ label: "Overview", href: "/dashboard", icon: BarChart3 },
-	{ label: "Employees", href: "/dashboard/employees", icon: Users },
-	{ label: "Payroll Groups", href: "/dashboard/payroll", icon: Briefcase },
-	{ label: "Payments", href: "/dashboard/payments", icon: Send },
-	{ label: "Settings", href: "/dashboard/settings", icon: Settings },
+	{ label: "Overview", href: routes.dashboardRoutes.OVERVIEW, icon: BarChart3 },
+	{ label: "Employees", href: routes.dashboardRoutes.EMPLOYEES, icon: Users },
+	{
+		label: "Payroll Groups",
+		href: routes.dashboardRoutes.PAYROLL_GROUPS,
+		icon: Briefcase,
+	},
+	{ label: "Payments", href: routes.dashboardRoutes.PAYMENTS, icon: Send },
+	{ label: "Settings", href: routes.dashboardRoutes.SETTINGS, icon: Settings },
 ];
 
 interface DashboardSidebarProps {
@@ -44,65 +48,43 @@ export function DashboardSidebar({
 		setMounted(true);
 	}, []);
 
+	const displayName = getUserDisplayName(user);
+	const userInitial = displayName.charAt(0).toUpperCase() || "U";
+
 	const handleLogout = async () => {
 		await logout();
 		toast.success("Signed out successfully", {
 			description: "See you next time!",
 		});
-		router.push("/");
+		router.push(routes.authRoutes.SIGN_IN);
 	};
 
 	return (
 		<>
-			{/* Mobile overlay — animated */}
 			<div
 				className={cn(
-					"fixed inset-0 bg-black/50 md:hidden z-30 transition-opacity duration-200",
+					"fixed inset-0 z-30 bg-black/50 transition-opacity duration-200 md:hidden",
 					isOpen
-						? "opacity-100 pointer-events-auto"
-						: "opacity-0 pointer-events-none",
+						? "pointer-events-auto opacity-100"
+						: "pointer-events-none opacity-0",
 				)}
 				onClick={onClose}
 			/>
 
-			{/* Sidebar */}
 			<aside
 				className={cn(
-					"fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 border-r bg-sidebar flex flex-col",
-					"transition-transform duration-200 ease-in-out z-40",
-					"md:relative md:top-0 md:translate-x-0 md:h-full",
+					"fixed left-0 top-16 z-40 flex h-[calc(100vh-4rem)] w-64 flex-col border-r bg-sidebar transition-transform duration-200 ease-in-out",
+					"md:relative md:top-0 md:h-full md:translate-x-0",
 					isOpen ? "translate-x-0" : "-translate-x-full",
 				)}
 			>
-				{/* Mobile close button */}
-				{/* <div className="flex items-center justify-between px-4 pt-4 md:hidden">
-					<span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-						Navigation
-					</span>
-					<Button
-						variant="ghost"
-						size="icon"
-						onClick={onClose}
-						className="h-8 w-8"
-					>
-						<X className="h-4 w-4" />
-					</Button>
-				</div> */}
-
-				{/* Nav items */}
-				<nav className="flex flex-col gap-1 p-4 flex-1 mt-3">
-					{/* Section label */}
-					{/* <p className="hidden md:block text-xs font-semibold uppercase tracking-widest text-muted-foreground px-3 mb-2">
-						Main Menu
-					</p> */}
-
-					{navItems.map((item, i) => {
+				<nav className="mt-3 flex flex-1 flex-col gap-1 p-4">
+					{navItems.map((item, index) => {
 						const Icon = item.icon;
 						const isActive =
-							item.href === "/dashboard"
-								? pathname === "/dashboard"
-								: pathname === item.href ||
-									pathname.startsWith(item.href + "/");
+							item.href === routes.dashboardRoutes.OVERVIEW
+								? pathname === routes.dashboardRoutes.OVERVIEW
+								: pathname === item.href || pathname.startsWith(item.href + "/");
 
 						return (
 							<Link
@@ -112,7 +94,7 @@ export function DashboardSidebar({
 								style={{
 									opacity: mounted ? 1 : 0,
 									transform: mounted ? "translateX(0)" : "translateX(-12px)",
-									transition: `opacity 0.3s ease ${i * 50}ms, transform 0.3s ease ${i * 50}ms`,
+									transition: `opacity 0.3s ease ${index * 50}ms, transform 0.3s ease ${index * 50}ms`,
 								}}
 								className={cn(
 									"group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
@@ -128,29 +110,25 @@ export function DashboardSidebar({
 									)}
 								/>
 								<span className="flex-1">{item.label}</span>
-								{isActive && (
-									<ChevronRight className="h-3.5 w-3.5 opacity-60" />
-								)}
+								{isActive && <ChevronRight className="h-3.5 w-3.5 opacity-60" />}
 							</Link>
 						);
 					})}
 				</nav>
 
-				{/* Bottom — user info + logout */}
 				<div className="border-t p-4">
-					<div className="rounded-xl bg-muted/50 p-3 mb-3">
+					<div className="mb-3 rounded-xl bg-muted/50 p-3">
 						<div className="flex items-center gap-3">
-							{/* Avatar */}
-							<div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+							<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
 								<span className="text-xs font-semibold text-primary">
-									{user?.name?.[0]?.toUpperCase() ?? "U"}
+									{userInitial}
 								</span>
 							</div>
-							<div className="flex-1 min-w-0">
-								<p className="text-sm font-medium text-foreground truncate">
-									{user?.name ?? "User"}
+							<div className="min-w-0 flex-1">
+								<p className="truncate text-sm font-medium text-foreground">
+									{displayName}
 								</p>
-								<p className="text-xs text-muted-foreground truncate">
+								<p className="truncate text-xs text-muted-foreground">
 									{user?.email}
 								</p>
 							</div>
@@ -161,7 +139,7 @@ export function DashboardSidebar({
 						variant="ghost"
 						size="sm"
 						onClick={handleLogout}
-						className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+						className="w-full justify-start gap-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 					>
 						<LogOut className="h-4 w-4" />
 						Sign out
@@ -171,5 +149,3 @@ export function DashboardSidebar({
 		</>
 	);
 }
-
-

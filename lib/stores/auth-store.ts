@@ -5,16 +5,24 @@ import {
 	clearStoredAuthSession,
 	StoredAuthSession,
 } from "@/lib/auth/session";
-import { signIn, signOut, type AuthResponse } from "@/services/auth.service";
+import { signIn, signOut, type AuthResponse, type AuthUserResponse } from "@/services/auth.service";
+import { type CurrentUserData } from "@/services/user.service";
 
 export type UserRole = "owner" | "admin" | "hr-manager" | "viewer";
 
 export interface User {
 	id: string;
 	email: string;
-	name: string;
-	role: UserRole;
+	first_name: string;
+	last_name: string;
+	role_name: string;
+	role_id?: string;
 	company?: string;
+	company_id?: string;
+	created_at?: string;
+	email_verified_at?: string | null;
+	is_active?: boolean;
+	last_login_at?: string | null;
 }
 
 export interface AuthSeed {
@@ -34,10 +42,8 @@ interface AuthState {
 	isAuthenticated: boolean;
 	login: (email: string, password: string) => Promise<void>;
 	hydrateAuth: (response: AuthResponse, seed: AuthSeed) => void;
+	setUserProfile: (user: CurrentUserData) => void;
 	logout: () => Promise<void>;
-	updateProfile: (
-		updates: Partial<Pick<User, "name" | "email" | "company">>,
-	) => Promise<void>;
 	changePassword: (
 		currentPassword: string,
 		newPassword: string,
@@ -51,6 +57,19 @@ function isUserRole(value: unknown): value is UserRole {
 		typeof value === "string" &&
 		USER_ROLES.includes(value as (typeof USER_ROLES)[number])
 	);
+}
+
+function toRoleName(value?: string | null) {
+	if (!value) {
+		return "Admin";
+	}
+
+	return value
+		.replace(/-/g, " ")
+		.split(" ")
+		.filter(Boolean)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
 }
 
 function decodeJwtPayload(token?: string | null) {
@@ -81,15 +100,17 @@ function decodeJwtPayload(token?: string | null) {
 	}
 }
 
-function buildName(seed: AuthSeed, user?: AuthResponse["user"]) {
-	const firstName =
+function getFallbackFirstName(seed: AuthSeed, user?: AuthUserResponse) {
+	return (
 		user?.first_name?.trim() ||
 		seed.first_name?.trim() ||
 		seed.email.split("@")[0] ||
-		"User";
-	const lastName = user?.last_name?.trim() || seed.last_name?.trim() || "";
+		"User"
+	);
+}
 
-	return `${firstName} ${lastName}`.trim();
+function getFallbackLastName(seed: AuthSeed, user?: AuthUserResponse) {
+	return user?.last_name?.trim() || seed.last_name?.trim() || "";
 }
 
 function buildUser(response: AuthResponse, seed: AuthSeed): User {
@@ -98,23 +119,44 @@ function buildUser(response: AuthResponse, seed: AuthSeed): User {
 	const accessToken =
 		responseData?.session?.access_token ?? response.token ?? null;
 	const claims = decodeJwtPayload(accessToken);
-	const role =
+	const roleSlug =
 		(isUserRole(responseUser?.role_slug) && responseUser.role_slug) ||
 		seed.role_slug ||
-		"admin";
+		null;
 
 	return {
 		id:
 			responseUser?.id ||
 			(typeof claims?.user_id === "string" ? claims.user_id : seed.email),
 		email: responseUser?.email || seed.email,
-		name: buildName(seed, responseUser),
-		role,
+		first_name: getFallbackFirstName(seed, responseUser),
+		last_name: getFallbackLastName(seed, responseUser),
+		role_name: toRoleName(responseUser?.role_name ?? roleSlug),
 		company:
 			responseUser?.company_name ||
 			seed.company_name ||
 			responseData?.company_slug ||
 			seed.company_slug,
+	};
+}
+
+function mapCurrentUserToStoreUser(
+	currentUser: CurrentUserData,
+	existingUser: User | null,
+): User {
+	return {
+		id: currentUser.id,
+		email: currentUser.email,
+		first_name: currentUser.first_name,
+		last_name: currentUser.last_name,
+		role_name: currentUser.role_name,
+		role_id: currentUser.role_id,
+		company: existingUser?.company,
+		company_id: currentUser.company_id,
+		created_at: currentUser.created_at,
+		email_verified_at: currentUser.email_verified_at,
+		is_active: currentUser.is_active,
+		last_login_at: currentUser.last_login_at,
 	};
 }
 
@@ -146,6 +188,16 @@ const initialState = {
 	isAuthenticated: false,
 };
 
+export function getUserDisplayName(user: Pick<User, "first_name" | "last_name" | "email"> | null) {
+	if (!user) {
+		return "User";
+	}
+
+	const fullName = `${user.first_name} ${user.last_name}`.trim();
+
+	return fullName || user.email || "User";
+}
+
 export const useAuthStore = create<AuthState>()(
 	persist(
 		(set, get) => ({
@@ -175,6 +227,14 @@ export const useAuthStore = create<AuthState>()(
 				});
 			},
 
+			setUserProfile: (currentUser) => {
+				const existingUser = get().user;
+
+				set({
+					user: mapCurrentUserToStoreUser(currentUser, existingUser),
+				});
+			},
+
 			logout: async () => {
 				const session = get().session;
 
@@ -186,29 +246,6 @@ export const useAuthStore = create<AuthState>()(
 					clearStoredAuthSession();
 					set(initialState);
 				}
-			},
-
-			updateProfile: async (updates) => {
-				const { user } = get();
-
-				if (!user) {
-					throw new Error("Not authenticated");
-				}
-
-				if (updates.name !== undefined && updates.name.trim().length < 2) {
-					throw new Error("Name must be at least 2 characters");
-				}
-
-				if (updates.email !== undefined && !updates.email.includes("@")) {
-					throw new Error("Invalid email address");
-				}
-
-				set({
-					user: {
-						...user,
-						...updates,
-					},
-				});
 			},
 
 			changePassword: async (currentPassword: string, newPassword: string) => {

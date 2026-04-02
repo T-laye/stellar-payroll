@@ -1,5 +1,8 @@
 import { apiClient } from "@/lib/api/client";
-import { getStoredAuthSession, type StoredAuthSession } from "@/lib/auth/session";
+import {
+	getStoredAuthHeaders,
+	type StoredAuthSession,
+} from "@/lib/auth/session";
 import {
 	ChangeVerificationEmailFormData,
 	ForgotPasswordFormData,
@@ -34,6 +37,7 @@ export interface AuthUserResponse {
 	first_name?: string;
 	last_name?: string;
 	role_slug?: string;
+	role_name?: string;
 	company_name?: string;
 	company_slug?: string;
 }
@@ -88,18 +92,7 @@ export function verifyEmail(payload: { token: string; email?: string }) {
 }
 
 export function signOut(session?: StoredAuthSession | null) {
-	const storedSession = session ?? getStoredAuthSession();
-	const headers: Record<string, string> = {};
-
-	if (storedSession?.access_token) {
-		headers.access_token = storedSession.access_token;
-	}
-
-	if (storedSession?.pay_token) {
-		headers.pay_token = storedSession.pay_token;
-	}
-
 	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.SIGN_OUT, undefined, {
-		headers,
+		headers: getStoredAuthHeaders(session),
 	});
 }

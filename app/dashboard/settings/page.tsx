@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useCurrentUser, useUpdateCurrentUser } from "@/hooks/user.hook";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,12 +28,9 @@ import {
 	X,
 } from "lucide-react";
 
-// ─── Schemas ─────────────────────────────────────────────────────────────────
-
 const ProfileSchema = z.object({
-	name: z.string().min(2, "Name must be at least 2 characters"),
-	email: z.string().email("Invalid email address"),
-	company: z.string().optional(),
+	first_name: z.string().min(2, "First name must be at least 2 characters"),
+	last_name: z.string().min(2, "Last name must be at least 2 characters"),
 });
 
 const PasswordSchema = z
@@ -41,15 +39,13 @@ const PasswordSchema = z
 		newPassword: z.string().min(6, "Must be at least 6 characters"),
 		confirmPassword: z.string().min(1, "Please confirm your new password"),
 	})
-	.refine((d) => d.newPassword === d.confirmPassword, {
+	.refine((data) => data.newPassword === data.confirmPassword, {
 		message: "Passwords do not match",
 		path: ["confirmPassword"],
 	});
 
 type ProfileFormData = z.infer<typeof ProfileSchema>;
 type PasswordFormData = z.infer<typeof PasswordSchema>;
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function FadeUp({
 	children,
@@ -62,21 +58,29 @@ function FadeUp({
 }) {
 	const ref = useRef<HTMLDivElement>(null);
 	const [inView, setInView] = useState(false);
+
 	useEffect(() => {
 		const el = ref.current;
-		if (!el) return;
-		const ob = new IntersectionObserver(
-			([e]) => {
-				if (e.isIntersecting) {
+
+		if (!el) {
+			return;
+		}
+
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (entry.isIntersecting) {
 					setInView(true);
-					ob.disconnect();
+					observer.disconnect();
 				}
 			},
 			{ threshold: 0.1 },
 		);
-		ob.observe(el);
-		return () => ob.disconnect();
+
+		observer.observe(el);
+
+		return () => observer.disconnect();
 	}, []);
+
 	return (
 		<div
 			ref={ref}
@@ -106,8 +110,8 @@ function Field({
 			<label className="text-sm font-medium text-foreground">{label}</label>
 			{children}
 			{error && (
-				<p className="text-xs text-destructive flex items-center gap-1">
-					<span className="h-1 w-1 rounded-full bg-destructive inline-block shrink-0" />
+				<p className="flex items-center gap-1 text-xs text-destructive">
+					<span className="inline-block h-1 w-1 shrink-0 rounded-full bg-destructive" />
 					{error}
 				</p>
 			)}
@@ -120,6 +124,7 @@ function PasswordInput({
 	...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { error?: boolean }) {
 	const [show, setShow] = useState(false);
+
 	return (
 		<div className="relative">
 			<Input
@@ -132,9 +137,9 @@ function PasswordInput({
 			/>
 			<button
 				type="button"
-				onClick={() => setShow((v) => !v)}
+				onClick={() => setShow((value) => !value)}
 				tabIndex={-1}
-				className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+				className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
 				aria-label={show ? "Hide password" : "Show password"}
 			>
 				{show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -142,8 +147,6 @@ function PasswordInput({
 		</div>
 	);
 }
-
-// ─── Section wrapper ──────────────────────────────────────────────────────────
 
 function SettingsCard({
 	icon: Icon,
@@ -159,19 +162,20 @@ function SettingsCard({
 	accent?: "default" | "danger";
 }) {
 	const isDanger = accent === "danger";
+
 	return (
 		<Card
 			className={cn("overflow-hidden", isDanger && "border-destructive/20")}
 		>
 			<div
 				className={cn(
-					"flex items-center gap-3 px-5 sm:px-6 py-4 border-b",
+					"flex items-center gap-3 border-b px-5 py-4 sm:px-6",
 					isDanger ? "bg-destructive/5" : "bg-muted/20",
 				)}
 			>
 				<div
 					className={cn(
-						"h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+						"flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
 						isDanger ? "bg-destructive/10" : "bg-primary/10",
 					)}
 				>
@@ -199,13 +203,14 @@ function SettingsCard({
 	);
 }
 
-// ─── Profile Form ─────────────────────────────────────────────────────────────
-
 function ProfileForm() {
-	const user = useAuthStore((s) => s.user);
-	const updateProfile = useAuthStore((s) => s.updateProfile);
+	const user = useAuthStore((state) => state.user);
 	const [isEditing, setIsEditing] = useState(false);
-	const [isSaving, setIsSaving] = useState(false);
+	const { isFetching, data } = useCurrentUser();
+	const { mutateAsync: updateCurrentUser, isPending: isSaving } =
+		useUpdateCurrentUser();
+
+	console.log(data, "from settings page");
 
 	const {
 		register,
@@ -215,116 +220,121 @@ function ProfileForm() {
 	} = useForm<ProfileFormData>({
 		resolver: zodResolver(ProfileSchema),
 		defaultValues: {
-			name: user?.name ?? "",
-			email: user?.email ?? "",
-			company: user?.company ?? "",
+			first_name: user?.first_name ?? "",
+			last_name: user?.last_name ?? "",
 		},
 	});
 
+	useEffect(() => {
+		reset({
+			first_name: user?.first_name ?? "",
+			last_name: user?.last_name ?? "",
+		});
+	}, [reset, user?.first_name, user?.last_name]);
+
 	const handleCancel = () => {
 		reset({
-			name: user?.name ?? "",
-			email: user?.email ?? "",
-			company: user?.company ?? "",
+			first_name: user?.first_name ?? "",
+			last_name: user?.last_name ?? "",
 		});
 		setIsEditing(false);
 	};
 
 	const onSubmit = async (data: ProfileFormData) => {
-		setIsSaving(true);
 		try {
-			await updateProfile(data);
+			await updateCurrentUser(data);
 			toast.success("Profile updated", {
 				description: "Your account details have been saved.",
 			});
 			setIsEditing(false);
-		} catch (err) {
+		} catch (error) {
 			toast.error("Failed to update profile", {
-				description: err instanceof Error ? err.message : "Please try again.",
+				description:
+					error instanceof Error ? error.message : "Please try again.",
 			});
-		} finally {
-			setIsSaving(false);
 		}
 	};
 
 	return (
 		<form onSubmit={handleSubmit(onSubmit)} noValidate>
 			<div className="grid gap-4 sm:grid-cols-2">
-				{/* Name */}
-				<Field label="Full Name" error={errors.name?.message}>
+				<Field label="First Name" error={errors.first_name?.message}>
 					<div className="relative">
-						<User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+						<User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 						<Input
-							{...register("name")}
-							placeholder="John Doe"
-							disabled={!isEditing}
+							{...register("first_name")}
+							placeholder="John"
+							disabled={!isEditing || isFetching}
 							className={cn(
 								"pl-9 transition-colors",
-								!isEditing && "bg-muted/40 cursor-default",
-								errors.name && "border-destructive",
+								!isEditing && "cursor-default bg-muted/40",
+								errors.first_name && "border-destructive",
 							)}
 						/>
 					</div>
 				</Field>
 
-				{/* Email */}
-				<Field label="Email Address" error={errors.email?.message}>
+				<Field label="Last Name" error={errors.last_name?.message}>
 					<div className="relative">
-						<Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+						<User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 						<Input
-							{...register("email")}
-							type="email"
-							placeholder="you@example.com"
-							disabled={!isEditing}
+							{...register("last_name")}
+							placeholder="Doe"
+							disabled={!isEditing || isFetching}
 							className={cn(
 								"pl-9 transition-colors",
-								!isEditing && "bg-muted/40 cursor-default",
-								errors.email && "border-destructive",
+								!isEditing && "cursor-default bg-muted/40",
+								errors.last_name && "border-destructive",
 							)}
 						/>
 					</div>
 				</Field>
 
-				{/* Company */}
-				<Field label="Company" error={errors.company?.message}>
+				<Field label="Email Address">
 					<div className="relative">
-						<Building className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+						<Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 						<Input
-							{...register("company")}
-							placeholder="Acme Inc."
-							disabled={!isEditing}
-							className={cn(
-								"pl-9 transition-colors",
-								!isEditing && "bg-muted/40 cursor-default",
-							)}
+							value={user?.email ?? ""}
+							disabled
+							className="cursor-default bg-muted/40 pl-9"
 						/>
 					</div>
 				</Field>
 
-				{/* Role — read only */}
+				<Field label="Company">
+					<div className="relative">
+						<Building className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							value={user?.company ?? ""}
+							disabled
+							className="cursor-default bg-muted/40 pl-9"
+						/>
+					</div>
+				</Field>
+
 				<Field label="Account Role">
 					<div className="relative">
-						<ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+						<ShieldCheck className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 						<Input
-							value={user?.role?.replace(/-/g, " ") ?? ""}
+							value={user?.role_name ?? ""}
 							disabled
-							className="pl-9 bg-muted/40 cursor-default capitalize"
+							className="cursor-default bg-muted/40 pl-9 capitalize"
 						/>
 					</div>
-					<p className="text-xs text-muted-foreground mt-1">
+					<p className="mt-1 text-xs text-muted-foreground">
 						Role cannot be changed here. Contact your admin.
 					</p>
 				</Field>
 			</div>
 
-			{/* Actions */}
-			<div className="flex items-center gap-3 mt-6">
+			<div className="mt-6 flex items-center gap-3">
 				{!isEditing ? (
 					<Button
 						type="button"
 						variant="outline"
 						className="gap-2"
 						onClick={() => setIsEditing(true)}
+						disabled={isFetching}
 					>
 						<Pencil className="h-4 w-4" />
 						Edit Profile
@@ -338,7 +348,7 @@ function ProfileForm() {
 						>
 							{isSaving ? (
 								<>
-									<Loader2 className="h-4 w-4 animate-spin" /> Saving…
+									<Loader2 className="h-4 w-4 animate-spin" /> Saving...
 								</>
 							) : (
 								<>
@@ -362,10 +372,8 @@ function ProfileForm() {
 	);
 }
 
-// ─── Password Form ────────────────────────────────────────────────────────────
-
 function PasswordForm() {
-	const changePassword = useAuthStore((s) => s.changePassword);
+	const changePassword = useAuthStore((state) => state.changePassword);
 	const [isSaving, setIsSaving] = useState(false);
 	const [isOpen, setIsOpen] = useState(false);
 
@@ -381,7 +389,6 @@ function PasswordForm() {
 
 	const newPassword = watch("newPassword", "");
 
-	// Password strength indicator
 	const strength = (() => {
 		if (!newPassword) return 0;
 		let score = 0;
@@ -422,9 +429,10 @@ function PasswordForm() {
 			});
 			reset();
 			setIsOpen(false);
-		} catch (err) {
+		} catch (error) {
 			toast.error("Failed to change password", {
-				description: err instanceof Error ? err.message : "Please try again.",
+				description:
+					error instanceof Error ? error.message : "Please try again.",
 			});
 		} finally {
 			setIsSaving(false);
@@ -436,7 +444,7 @@ function PasswordForm() {
 			<div className="flex items-center justify-between rounded-xl bg-muted/40 p-4">
 				<div>
 					<p className="text-sm font-medium text-foreground">Password</p>
-					<p className="text-xs text-muted-foreground mt-0.5">
+					<p className="mt-0.5 text-xs text-muted-foreground">
 						Last changed: unknown
 					</p>
 				</div>
@@ -458,7 +466,7 @@ function PasswordForm() {
 			<Field label="Current Password" error={errors.currentPassword?.message}>
 				<PasswordInput
 					{...register("currentPassword")}
-					placeholder="••••••••"
+					placeholder="********"
 					error={!!errors.currentPassword}
 				/>
 			</Field>
@@ -466,19 +474,18 @@ function PasswordForm() {
 			<Field label="New Password" error={errors.newPassword?.message}>
 				<PasswordInput
 					{...register("newPassword")}
-					placeholder="••••••••"
+					placeholder="********"
 					error={!!errors.newPassword}
 				/>
-				{/* Strength bar */}
 				{newPassword && (
 					<div className="mt-2 space-y-1">
 						<div className="flex gap-1">
-							{[1, 2, 3, 4].map((i) => (
+							{[1, 2, 3, 4].map((index) => (
 								<div
-									key={i}
+									key={index}
 									className={cn(
 										"h-1 flex-1 rounded-full transition-all duration-300",
-										i <= strength ? strengthColor : "bg-muted",
+										index <= strength ? strengthColor : "bg-muted",
 									)}
 								/>
 							))}
@@ -496,7 +503,7 @@ function PasswordForm() {
 			>
 				<PasswordInput
 					{...register("confirmPassword")}
-					placeholder="••••••••"
+					placeholder="********"
 					error={!!errors.confirmPassword}
 				/>
 			</Field>
@@ -505,7 +512,7 @@ function PasswordForm() {
 				<Button type="submit" disabled={isSaving} className="gap-2 shadow-sm">
 					{isSaving ? (
 						<>
-							<Loader2 className="h-4 w-4 animate-spin" /> Updating…
+							<Loader2 className="h-4 w-4 animate-spin" /> Updating...
 						</>
 					) : (
 						<>
@@ -527,8 +534,6 @@ function PasswordForm() {
 	);
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
 export default function SettingsPage() {
 	const handleComingSoon = (feature: string) => {
 		toast.info(`${feature} coming soon`, {
@@ -537,10 +542,10 @@ export default function SettingsPage() {
 	};
 
 	return (
-		<div className="space-y-6 sm:space-y-8 max-w-3xl">
+		<div className="max-w-3xl space-y-6 sm:space-y-8">
 			<FadeUp>
 				<div>
-					<h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+					<h1 className="text-2xl font-bold text-foreground sm:text-3xl">
 						Settings
 					</h1>
 					<p className="mt-1 text-sm text-muted-foreground">
@@ -549,18 +554,16 @@ export default function SettingsPage() {
 				</div>
 			</FadeUp>
 
-			{/* Profile */}
 			<FadeUp delay={60}>
 				<SettingsCard
 					icon={User}
 					title="Account Information"
-					description="Update your name, email, and company"
+					description="Update your first and last name"
 				>
 					<ProfileForm />
 				</SettingsCard>
 			</FadeUp>
 
-			{/* Password */}
 			<FadeUp delay={120}>
 				<SettingsCard
 					icon={Key}
@@ -570,13 +573,12 @@ export default function SettingsPage() {
 					<div className="space-y-4">
 						<PasswordForm />
 
-						{/* 2FA row */}
-						<div className="flex items-center justify-between rounded-xl bg-muted/40 p-4 flex-wrap gap-3">
+						<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/40 p-4">
 							<div>
 								<p className="text-sm font-medium text-foreground">
 									Two-Factor Authentication
 								</p>
-								<p className="text-xs text-muted-foreground mt-0.5">
+								<p className="mt-0.5 text-xs text-muted-foreground">
 									Add an extra layer of security
 								</p>
 							</div>
@@ -589,13 +591,12 @@ export default function SettingsPage() {
 							</Button>
 						</div>
 
-						{/* Sessions row */}
-						<div className="flex items-center justify-between rounded-xl bg-muted/40 p-4 flex-wrap gap-3">
+						<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/40 p-4">
 							<div>
 								<p className="text-sm font-medium text-foreground">
 									Active Sessions
 								</p>
-								<p className="text-xs text-muted-foreground mt-0.5">
+								<p className="mt-0.5 text-xs text-muted-foreground">
 									View and revoke active sessions
 								</p>
 							</div>
@@ -611,7 +612,6 @@ export default function SettingsPage() {
 				</SettingsCard>
 			</FadeUp>
 
-			{/* API Keys */}
 			<FadeUp delay={180}>
 				<SettingsCard
 					icon={Key}
@@ -623,7 +623,7 @@ export default function SettingsPage() {
 							<p className="text-sm font-medium text-foreground">
 								No API keys generated
 							</p>
-							<p className="text-xs text-muted-foreground mt-0.5">
+							<p className="mt-0.5 text-xs text-muted-foreground">
 								Generate a key to integrate with your systems
 							</p>
 						</div>
@@ -639,7 +639,6 @@ export default function SettingsPage() {
 				</SettingsCard>
 			</FadeUp>
 
-			{/* Webhooks */}
 			<FadeUp delay={240}>
 				<SettingsCard
 					icon={Webhook}
@@ -651,7 +650,7 @@ export default function SettingsPage() {
 							<p className="text-sm font-medium text-foreground">
 								No webhooks configured
 							</p>
-							<p className="text-xs text-muted-foreground mt-0.5">
+							<p className="mt-0.5 text-xs text-muted-foreground">
 								Add a webhook URL to get instant notifications
 							</p>
 						</div>
@@ -667,20 +666,19 @@ export default function SettingsPage() {
 				</SettingsCard>
 			</FadeUp>
 
-			{/* Danger zone */}
 			<FadeUp delay={300}>
 				<SettingsCard
 					icon={AlertTriangle}
 					title="Danger Zone"
-					description="Irreversible actions — proceed with caution"
+					description="Irreversible actions - proceed with caution"
 					accent="danger"
 				>
-					<div className="flex items-center justify-between rounded-xl bg-destructive/5 border border-destructive/10 p-4 flex-wrap gap-3">
+					<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/10 bg-destructive/5 p-4">
 						<div>
 							<p className="text-sm font-medium text-foreground">
 								Delete Account
 							</p>
-							<p className="text-xs text-muted-foreground mt-0.5">
+							<p className="mt-0.5 text-xs text-muted-foreground">
 								Permanently delete your account and all associated data
 							</p>
 						</div>

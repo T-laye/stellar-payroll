@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ProtectedRoute } from "@/components/dashboard/protected-route";
+import { useCurrentUser } from "@/hooks/user.hook";
 import { DashboardHeader } from "../../components/dashboard/header";
 import { DashboardSidebar } from "../../components/dashboard/sidebar";
 
@@ -13,6 +14,7 @@ export default function DashboardLayout({
 }) {
 	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const pathname = usePathname();
+	useCurrentUser();
 
 	// Auto-close sidebar on route change (mobile)
 	useEffect(() => {
