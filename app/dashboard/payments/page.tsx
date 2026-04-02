@@ -1,28 +1,22 @@
 "use client";
 
-// ============================================================
-// ENHANCED DASHBOARD PAGES
-// app/dashboard/page.tsx
-// app/dashboard/employees/page.tsx
-// app/dashboard/payroll/page.tsx
-// app/dashboard/payments/page.tsx
-// app/dashboard/settings/page.tsx
-// ============================================================
-
-import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/lib/stores/auth-store";
-import { usePayrollStore } from "@/lib/stores/payroll-store";
-import { useEmployeeStore } from "@/lib/stores/employee-store";
-import { Card } from "@/components/ui/card";
+import { useEffect, useMemo, useState } from "react";
+import {
+	AlertCircle,
+	CheckCircle,
+	Clock,
+	Copy,
+	ExternalLink,
+	Filter,
+	Loader2,
+	ReceiptText,
+} from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { EmployeeForm } from "@/components/employees/employee-form";
-import { PayrollForm } from "@/components/payroll/payroll-form";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
+import EmptyState from "@/components/shared/EmptyState";
+import FadeUp from "@/components/shared/FadeUp";
+import StatusBadge from "@/components/shared/StatusBadge";
 import {
 	Select,
 	SelectContent,
@@ -30,79 +24,80 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "@/components/ui/dialog";
+	useCompanyPayrollGroups,
+	usePayrollRunTransactions,
+	usePayrollRuns,
+} from "@/hooks/payroll.hook";
+import { useCompanyTransactionStats } from "@/hooks/stats.hook";
+import { usePayrollStore } from "@/lib/stores/payroll-store";
+import { cn } from "@/lib/utils";
 import {
-	Users,
-	Briefcase,
-	Send,
-	TrendingUp,
-	Plus,
-	Trash2,
-	Edit2,
-	CheckCircle,
-	Clock,
-	AlertCircle,
-	Copy,
-	ExternalLink,
-	Search,
-	Filter,
-	RefreshCw,
-	ShieldCheck,
-	Key,
-	Webhook,
-	User,
-	Mail,
-	Building,
-	ChevronRight,
-	Loader2,
-	AlertTriangle,
-} from "lucide-react";
-import FadeUp from "../../../components/shared/FadeUp";
-import EmptyState from "../../../components/shared/EmptyState";
-import StatusBadge from "../../../components/shared/StatusBadge";
+	formatStatAmount,
+	formatStatDate,
+	formatStatLabel,
+	formatStatNumber,
+	formatStatPercent,
+	sumStatRecord,
+} from "@/lib/utils/stats";
+import { toast } from "sonner";
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// PAYMENTS PAGE — app/dashboard/payments/page.tsx
-// ═══════════════════════════════════════════════════════════════════════════════
+function formatDateTime(value: string | null | undefined) {
+	if (!value) {
+		return "Not available";
+	}
+
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) {
+		return "Not available";
+	}
+
+	return date.toLocaleString("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	});
+}
+
 export default function PaymentsPage() {
-	const payments = usePayrollStore((s) => s.payments);
-	const updatePayment = usePayrollStore((s) => s.updatePayment);
-	const groups = usePayrollStore((s) => s.getGroups());
-	const employees = useEmployeeStore((s) => s.getEmployees());
+	const groups = usePayrollStore((state) => state.groups);
+	const runs = usePayrollStore((state) => state.runs);
+	const runTransactions = usePayrollStore((state) => state.runTransactions);
 
+	const groupsQuery = useCompanyPayrollGroups();
+	const runsQuery = usePayrollRuns();
+	const transactionStatsQuery = useCompanyTransactionStats();
+
+	const [selectedRunId, setSelectedRunId] = useState<string>("");
 	const [selectedStatus, setSelectedStatus] = useState("all");
-	const prevCompletedRef = useRef<Set<string>>(new Set());
 
-	// Simulate payment processing + toast on completion
 	useEffect(() => {
-		const interval = setInterval(() => {
-			payments
-				.filter((p) => p.status === "processing")
-				.forEach((payment) => {
-					if (Math.random() > 0.3) {
-						updatePayment(payment.id, {
-							status: "completed",
-							completedAt: new Date().toISOString(),
-						});
-						if (!prevCompletedRef.current.has(payment.id)) {
-							prevCompletedRef.current.add(payment.id);
-							const emp = employees.find((e) => e.id === payment.employeeId);
-							toast.success("Payment completed", {
-								description: `${emp?.name ?? "Employee"} — ${payment.amount} ${payment.currency}`,
-							});
-						}
-					}
-				});
-		}, 3000);
-		return () => clearInterval(interval);
-	}, [payments, updatePayment, employees]);
+		if (!selectedRunId && runs.length > 0) {
+			setSelectedRunId(runs[0].id);
+		}
+	}, [runs, selectedRunId]);
+
+	const selectedRun = runs.find((run) => run.id === selectedRunId);
+	const transactionsQuery = usePayrollRunTransactions(selectedRunId || undefined);
+	const transactionStats = transactionStatsQuery.data?.data;
+	const transactionStatuses = Object.entries(transactionStats?.by_status ?? {});
+	const assetVolumes = transactionStats?.volume_by_asset ?? [];
+	const transactions = selectedRunId ? runTransactions[selectedRunId] ?? [] : [];
+	const filteredTransactions = useMemo(
+		() =>
+			selectedStatus === "all"
+				? transactions
+				: transactions.filter(
+						(transaction) => transaction.status.toUpperCase() === selectedStatus,
+					),
+		[selectedStatus, transactions],
+	);
+
+	const getGroupName = (groupId: string) =>
+		groups.find((group) => group.id === groupId)?.name ?? "Unknown Group";
 
 	const copyToClipboard = (text: string) => {
 		navigator.clipboard.writeText(text);
@@ -111,56 +106,51 @@ export default function PaymentsPage() {
 		});
 	};
 
-	const filtered =
-		selectedStatus === "all"
-			? payments
-			: payments.filter((p) => p.status === selectedStatus);
-
 	const stats = [
 		{
-			label: "Total",
-			value: payments.length,
+			label: "Tracked Transactions",
+			value: formatStatNumber(
+				transactionStats
+					? sumStatRecord(transactionStats.by_status)
+					: filteredTransactions.length,
+			),
 			color: "text-foreground",
 			bg: "bg-muted/50",
 		},
 		{
-			label: "Completed",
-			value: payments.filter((p) => p.status === "completed").length,
+			label: "Success Rate",
+			value: formatStatPercent(transactionStats?.success_rate),
 			color: "text-green-600",
 			bg: "bg-green-50 dark:bg-green-900/20",
 		},
 		{
-			label: "Processing",
-			value: payments.filter((p) => p.status === "processing").length,
+			label: "Need Retry",
+			value: formatStatNumber(transactionStats?.failed_needing_retry),
 			color: "text-blue-600",
 			bg: "bg-blue-50 dark:bg-blue-900/20",
 		},
 		{
-			label: "Pending",
-			value: payments.filter((p) => p.status === "pending").length,
+			label: "Assets In Use",
+			value: formatStatNumber(assetVolumes.length),
 			color: "text-yellow-600",
 			bg: "bg-yellow-50 dark:bg-yellow-900/20",
-		},
-		{
-			label: "Failed",
-			value: payments.filter((p) => p.status === "failed").length,
-			color: "text-red-600",
-			bg: "bg-red-50 dark:bg-red-900/20",
 		},
 	];
 
 	const statusIcon = (status: string) => {
-		switch (status) {
-			case "completed":
+		switch (status.toUpperCase()) {
+			case "COMPLETED":
+			case "CONFIRMED":
 				return <CheckCircle className="h-4 w-4 text-green-600" />;
-			case "processing":
-				return <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />;
-			case "pending":
+			case "PROCESSING":
+				return <Loader2 className="h-4 w-4 animate-spin text-blue-600" />;
+			case "PENDING":
 				return <Clock className="h-4 w-4 text-yellow-600" />;
-			case "failed":
+			case "FAILED":
+			case "CANCELLED":
 				return <AlertCircle className="h-4 w-4 text-red-600" />;
 			default:
-				return null;
+				return <ReceiptText className="h-4 w-4 text-muted-foreground" />;
 		}
 	};
 
@@ -168,184 +158,367 @@ export default function PaymentsPage() {
 		<div className="space-y-6 sm:space-y-8">
 			<FadeUp>
 				<div>
-					<h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+					<h1 className="text-2xl font-bold text-foreground sm:text-3xl">
 						Payments
 					</h1>
 					<p className="mt-1 text-sm text-muted-foreground">
-						Track and manage your cross-border payments
+						Review payroll transactions by run, status, hash, and destination
+						address.
 					</p>
 				</div>
 			</FadeUp>
 
-			{/* Stats */}
-			<div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
-				{stats.map((s, i) => (
-					<FadeUp key={s.label} delay={i * 50}>
-						<Card className={cn("p-4 sm:p-5", s.bg)}>
-							<p className="text-xs text-muted-foreground">{s.label}</p>
-							<p className={cn("text-2xl font-bold mt-1", s.color)}>
-								{s.value}
-							</p>
+			{transactionStatsQuery.isError && (
+				<FadeUp delay={40}>
+					<Alert className="border-amber-200 bg-amber-50 text-amber-900">
+						<AlertCircle className="h-4 w-4" />
+						<AlertTitle>Transaction stats are unavailable</AlertTitle>
+						<AlertDescription className="text-amber-800">
+							Your transaction activity feed still works, but the live company
+							transaction summaries could not be fetched.
+						</AlertDescription>
+					</Alert>
+				</FadeUp>
+			)}
+
+			{transactionStatsQuery.isPending && !transactionStats ? (
+				<div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+					{Array.from({ length: 4 }).map((_, index) => (
+						<FadeUp key={index} delay={index * 40}>
+							<Card className="p-4 sm:p-5">
+								<Skeleton className="h-4 w-24" />
+								<Skeleton className="mt-3 h-10 w-20" />
+							</Card>
+						</FadeUp>
+					))}
+				</div>
+			) : (
+				<div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+					{stats.map((stat, index) => (
+						<FadeUp key={stat.label} delay={index * 50}>
+							<Card className={cn("p-4 sm:p-5", stat.bg)}>
+								<p className="text-xs text-muted-foreground">{stat.label}</p>
+								<p className={cn("mt-1 text-2xl font-bold", stat.color)}>
+									{stat.value}
+								</p>
+							</Card>
+						</FadeUp>
+					))}
+				</div>
+			)}
+
+			{transactionStats && (
+				<div className="grid gap-4 xl:grid-cols-2">
+					<FadeUp delay={120}>
+						<Card className="p-5">
+							<h2 className="text-base font-semibold text-foreground">
+								Transactions By Status
+							</h2>
+							<div className="mt-4 space-y-3">
+								{transactionStatuses.length === 0 ? (
+									<p className="text-sm text-muted-foreground">
+										No transaction status data yet.
+									</p>
+								) : (
+									transactionStatuses.map(([status, count]) => (
+										<div
+											key={status}
+											className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
+										>
+											<span className="text-sm text-foreground">
+												{formatStatLabel(status)}
+											</span>
+											<span className="text-sm font-medium text-muted-foreground">
+												{formatStatNumber(count)}
+											</span>
+										</div>
+									))
+								)}
+							</div>
 						</Card>
 					</FadeUp>
-				))}
-			</div>
 
-			{/* Filter */}
-			<FadeUp delay={200}>
-				<div className="flex items-center gap-3">
-					<Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-					<Select value={selectedStatus} onValueChange={setSelectedStatus}>
-						<SelectTrigger className="w-44">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">All Payments</SelectItem>
-							<SelectItem value="pending">Pending</SelectItem>
-							<SelectItem value="processing">Processing</SelectItem>
-							<SelectItem value="completed">Completed</SelectItem>
-							<SelectItem value="failed">Failed</SelectItem>
-						</SelectContent>
-					</Select>
-					{selectedStatus !== "all" && (
-						<Button
-							variant="ghost"
-							size="sm"
-							className="text-xs"
-							onClick={() => setSelectedStatus("all")}
-						>
-							Clear
-						</Button>
-					)}
+					<FadeUp delay={160}>
+						<Card className="p-5">
+							<h2 className="text-base font-semibold text-foreground">
+								Volume By Asset
+							</h2>
+							<div className="mt-4 space-y-3">
+								{assetVolumes.length === 0 ? (
+									<p className="text-sm text-muted-foreground">
+										No asset volume data yet.
+									</p>
+								) : (
+									assetVolumes.map((asset) => (
+										<div
+											key={`${asset.asset}-${asset.amount}-${asset.count}`}
+											className="rounded-xl bg-muted/40 p-3"
+										>
+											<div className="flex items-center justify-between gap-3">
+												<p className="text-sm font-medium text-foreground">
+													{asset.asset}
+												</p>
+												<p className="text-xs text-muted-foreground">
+													{formatStatNumber(asset.count)} txns
+												</p>
+											</div>
+											<p className="mt-1 text-lg font-semibold text-foreground">
+												{formatStatAmount(asset.amount)}
+											</p>
+										</div>
+									))
+								)}
+							</div>
+						</Card>
+					</FadeUp>
 				</div>
+			)}
+
+			<FadeUp delay={200}>
+				<Card className="p-5 sm:p-6">
+					<div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+						<div className="space-y-3">
+							<label className="text-sm font-medium text-foreground">
+								Payroll Run
+							</label>
+							<Select value={selectedRunId} onValueChange={setSelectedRunId}>
+								<SelectTrigger>
+									<SelectValue placeholder="Select a payroll run" />
+								</SelectTrigger>
+								<SelectContent>
+									{runs.map((run) => (
+										<SelectItem key={run.id} value={run.id}>
+											{getGroupName(run.group_id)} •{" "}
+											{formatStatDate(run.period_start)} -{" "}
+											{formatStatDate(run.period_end)}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-3">
+							<label className="text-sm font-medium text-foreground">
+								Status Filter
+							</label>
+							<div className="flex items-center gap-3">
+								<Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+								<Select value={selectedStatus} onValueChange={setSelectedStatus}>
+									<SelectTrigger className="w-full">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="all">All Transactions</SelectItem>
+										<SelectItem value="PENDING">Pending</SelectItem>
+										<SelectItem value="PROCESSING">Processing</SelectItem>
+										<SelectItem value="COMPLETED">Completed</SelectItem>
+										<SelectItem value="FAILED">Failed</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+					</div>
+
+					{selectedRun && (
+						<div className="mt-5 grid gap-3 md:grid-cols-4">
+							<div className="rounded-xl bg-muted/40 p-4">
+								<p className="text-xs text-muted-foreground">Group</p>
+								<p className="mt-1 text-sm font-semibold text-foreground">
+									{getGroupName(selectedRun.group_id)}
+								</p>
+							</div>
+							<div className="rounded-xl bg-muted/40 p-4">
+								<p className="text-xs text-muted-foreground">Run Amount</p>
+								<p className="mt-1 text-sm font-semibold text-foreground">
+									{formatStatAmount(selectedRun.total_amount)}{" "}
+									{selectedRun.currency}
+								</p>
+							</div>
+							<div className="rounded-xl bg-muted/40 p-4">
+								<p className="text-xs text-muted-foreground">Scheduled</p>
+								<p className="mt-1 text-sm font-semibold text-foreground">
+									{formatDateTime(selectedRun.scheduled_at)}
+								</p>
+							</div>
+							<div className="rounded-xl bg-muted/40 p-4">
+								<p className="text-xs text-muted-foreground">Status</p>
+								<div className="mt-1">
+									<StatusBadge status={selectedRun.status.toLowerCase()} />
+								</div>
+							</div>
+						</div>
+					)}
+				</Card>
 			</FadeUp>
 
-			{/* List */}
-			{filtered.length === 0 ? (
+			{runsQuery.isPending || groupsQuery.isPending ? (
+				<div className="space-y-3">
+					{Array.from({ length: 3 }).map((_, index) => (
+						<FadeUp key={index} delay={index * 40}>
+							<Card className="p-5 sm:p-6">
+								<Skeleton className="h-5 w-40" />
+								<Skeleton className="mt-4 h-20 w-full" />
+							</Card>
+						</FadeUp>
+					))}
+				</div>
+			) : runs.length === 0 ? (
 				<FadeUp delay={220}>
 					<EmptyState
-						icon={Send}
+						icon={ReceiptText}
+						title="No payroll runs yet"
+						description="Create a payroll run in the payroll section to begin tracking transactions here."
+					/>
+				</FadeUp>
+			) : transactionsQuery.isPending && selectedRunId ? (
+				<FadeUp delay={220}>
+					<Card className="p-5 sm:p-6">
+						<div className="flex items-center gap-3 text-sm text-muted-foreground">
+							<Loader2 className="h-4 w-4 animate-spin" />
+							Loading transactions for this payroll run...
+						</div>
+					</Card>
+				</FadeUp>
+			) : filteredTransactions.length === 0 ? (
+				<FadeUp delay={220}>
+					<EmptyState
+						icon={ReceiptText}
 						title={
-							payments.length === 0
-								? "No payments yet"
-								: "No payments match this filter"
+							transactions.length === 0
+								? "No transactions for this run yet"
+								: "No transactions match this filter"
 						}
 						description={
-							payments.length === 0
-								? "Process a payroll group to generate payments."
-								: "Try selecting a different status filter."
+							transactions.length === 0
+								? "Transactions will appear here once this payroll run starts creating payouts."
+								: "Try switching to another status or choosing a different payroll run."
 						}
 					/>
 				</FadeUp>
 			) : (
 				<div className="space-y-3">
-					{filtered.map((payment, i) => {
-						const emp = employees.find((e) => e.id === payment.employeeId);
-						const group = groups.find((g) => g.id === payment.groupId);
-						return (
-							<FadeUp key={payment.id} delay={i * 40}>
-								<Card className="p-5 sm:p-6 hover:border-primary/20 transition-colors">
-									<div className="flex items-start justify-between gap-4 flex-wrap">
-										<div className="flex items-center gap-3">
-											{statusIcon(payment.status)}
-											<div>
-												<p className="font-semibold text-foreground text-sm">
-													{emp?.name ?? "Unknown"}
-												</p>
+					{filteredTransactions.map((transaction, index) => (
+						<FadeUp key={transaction.id} delay={index * 40}>
+							<Card className="p-5 transition-colors hover:border-primary/20 sm:p-6">
+								<div className="flex flex-wrap items-start justify-between gap-4">
+									<div className="flex items-center gap-3">
+										{statusIcon(transaction.status)}
+										<div>
+											<p className="text-sm font-semibold text-foreground">
+												{formatStatAmount(transaction.amount)} {transaction.asset}
+											</p>
+											<p className="text-xs text-muted-foreground">
+												{selectedRun
+													? getGroupName(selectedRun.group_id)
+													: "Payroll run transaction"}
+											</p>
+										</div>
+									</div>
+									<StatusBadge status={transaction.status.toLowerCase()} />
+								</div>
+
+								<div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+									<div>
+										<p className="text-xs text-muted-foreground">To</p>
+										<p className="break-all text-sm text-foreground">
+											{transaction.to_address}
+										</p>
+									</div>
+									<div>
+										<p className="text-xs text-muted-foreground">Created</p>
+										<p className="text-sm text-foreground">
+											{formatDateTime(transaction.created_at)}
+										</p>
+									</div>
+									<div>
+										<p className="text-xs text-muted-foreground">Submitted</p>
+										<p className="text-sm text-foreground">
+											{formatDateTime(transaction.submitted_at)}
+										</p>
+									</div>
+									<div>
+										<p className="text-xs text-muted-foreground">Confirmed</p>
+										<p className="text-sm text-foreground">
+											{formatDateTime(transaction.confirmed_at)}
+										</p>
+									</div>
+								</div>
+
+								{transaction.stellar_tx_hash && (
+									<div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-muted/50 p-3">
+										<div className="min-w-0">
+											<p className="text-xs text-muted-foreground">
+												Transaction Hash
+											</p>
+											<p className="truncate font-mono text-xs text-foreground">
+												{transaction.stellar_tx_hash.substring(0, 24)}...
+											</p>
+										</div>
+										<div className="flex shrink-0 gap-1">
+											<Button
+												variant="ghost"
+												size="sm"
+												className="h-7 w-7 p-0"
+												onClick={() =>
+													copyToClipboard(transaction.stellar_tx_hash!)
+												}
+											>
+												<Copy className="h-3.5 w-3.5" />
+											</Button>
+											<Button
+												variant="ghost"
+												size="sm"
+												className="h-7 w-7 p-0"
+												asChild
+											>
+												<a
+													href={`https://stellar.expert/explorer/public/tx/${transaction.stellar_tx_hash}`}
+													target="_blank"
+													rel="noopener noreferrer"
+												>
+													<ExternalLink className="h-3.5 w-3.5" />
+												</a>
+											</Button>
+										</div>
+									</div>
+								)}
+
+								{(transaction.fee_amount || transaction.ledger_sequence) && (
+									<div className="mt-4 grid gap-3 sm:grid-cols-2">
+										{transaction.fee_amount && (
+											<div className="rounded-lg bg-muted/40 p-3">
 												<p className="text-xs text-muted-foreground">
-													{group?.name}
+													Fee Amount
+												</p>
+												<p className="mt-1 text-sm font-medium text-foreground">
+													{formatStatAmount(transaction.fee_amount)}
 												</p>
 											</div>
-										</div>
-										<StatusBadge status={payment.status} />
-									</div>
-
-									<div className="grid grid-cols-2 gap-3 mt-4 sm:grid-cols-4">
-										<div>
-											<p className="text-xs text-muted-foreground">Amount</p>
-											<p className="text-sm font-semibold text-foreground">
-												{payment.amount} {payment.currency}
-											</p>
-										</div>
-										<div>
-											<p className="text-xs text-muted-foreground">Created</p>
-											<p className="text-sm text-foreground">
-												{new Date(payment.createdAt).toLocaleDateString()}
-											</p>
-										</div>
-										{payment.completedAt && (
-											<div>
+										)}
+										{transaction.ledger_sequence && (
+											<div className="rounded-lg bg-muted/40 p-3">
 												<p className="text-xs text-muted-foreground">
-													Completed
+													Ledger Sequence
 												</p>
-												<p className="text-sm text-foreground">
-													{new Date(payment.completedAt).toLocaleDateString()}
+												<p className="mt-1 text-sm font-medium text-foreground">
+													{formatStatNumber(transaction.ledger_sequence)}
 												</p>
 											</div>
 										)}
 									</div>
+								)}
 
-									{/* Tx hash */}
-									{payment.stellarTxHash && (
-										<div className="mt-4 rounded-lg bg-muted/50 p-3 flex items-center justify-between gap-3">
-											<div className="min-w-0">
-												<p className="text-xs text-muted-foreground">
-													Transaction Hash
-												</p>
-												<p className="font-mono text-xs text-foreground truncate">
-													{payment.stellarTxHash.substring(0, 24)}…
-												</p>
-											</div>
-											<div className="flex gap-1 shrink-0">
-												<Button
-													variant="ghost"
-													size="sm"
-													className="h-7 w-7 p-0"
-													onClick={() =>
-														copyToClipboard(payment.stellarTxHash!)
-													}
-												>
-													<Copy className="h-3.5 w-3.5" />
-												</Button>
-												<Button
-													variant="ghost"
-													size="sm"
-													className="h-7 w-7 p-0"
-													asChild
-												>
-													<a
-														href={`https://stellar.expert/explorer/public/tx/${payment.stellarTxHash}`}
-														target="_blank"
-														rel="noopener noreferrer"
-													>
-														<ExternalLink className="h-3.5 w-3.5" />
-													</a>
-												</Button>
-											</div>
-										</div>
-									)}
-
-									{/* Status hints */}
-									{payment.status === "processing" && (
-										<div className="mt-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-2.5 flex items-center gap-2">
-											<RefreshCw className="h-3.5 w-3.5 text-blue-600 animate-spin shrink-0" />
-											<p className="text-xs text-blue-700 dark:text-blue-400">
-												Payment is being processed on the Stellar network…
-											</p>
-										</div>
-									)}
-									{payment.status === "failed" && (
-										<div className="mt-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 p-2.5 flex items-center gap-2">
-											<AlertCircle className="h-3.5 w-3.5 text-red-600 shrink-0" />
-											<p className="text-xs text-red-700 dark:text-red-400">
-												Payment failed. Please retry or contact support.
-											</p>
-										</div>
-									)}
-								</Card>
-							</FadeUp>
-						);
-					})}
+								{transaction.error_message && (
+									<div className="mt-3 flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-2.5 dark:border-red-800 dark:bg-red-900/20">
+										<AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-600" />
+										<p className="text-xs text-red-700 dark:text-red-400">
+											{transaction.error_message}
+										</p>
+									</div>
+								)}
+							</Card>
+						</FadeUp>
+					))}
 				</div>
 			)}
 		</div>

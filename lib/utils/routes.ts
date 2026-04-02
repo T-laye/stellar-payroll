@@ -9,9 +9,11 @@ export const routes = {
 	},
 	dashboardRoutes: {
 		OVERVIEW: "/dashboard",
-        EMPLOYEES:'/dashboard/employees',
-        PAYROLL_GROUPS:'/dashboard/payroll',
-        PAYMENTS:'/dashboard/payments',
-        SETTINGS:'/dashboard/settings'
+		EMPLOYEES: "/dashboard/employees",
+		PAYROLL_GROUPS: "/dashboard/payroll",
+		PAYMENTS: "/dashboard/payments",
+		WALLETS: "/dashboard/wallets",
+		ROLES: "/dashboard/roles",
+		SETTINGS: "/dashboard/settings",
 	},
 };

@@ -1,41 +1,60 @@
-import { Payment } from '@/lib/stores/payroll-store';
+import { type PayrollTransaction } from "@/services/payroll.service";
 
-export function processPayment(payment: Payment): Payment {
-  // Simulate payment processing
-  const statuses: Array<'pending' | 'processing' | 'completed' | 'failed'> = [
-    'pending',
-    'processing',
-    'completed',
-    'completed', // 50% success rate
-    'completed',
-  ];
+export function processPayment(
+	transaction: PayrollTransaction,
+): PayrollTransaction {
+	const statuses = ["PENDING", "PROCESSING", "COMPLETED", "FAILED"] as const;
+	const nextStatus = statuses[Math.floor(Math.random() * statuses.length)];
 
-  const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-
-  return {
-    ...payment,
-    status: randomStatus,
-    stellarTxHash: randomStatus === 'completed' ? `GBUL${Math.random().toString(36).substring(2, 15)}` : undefined,
-    completedAt: randomStatus === 'completed' ? new Date().toISOString() : undefined,
-  };
+	return {
+		...transaction,
+		status: nextStatus,
+		stellar_tx_hash:
+			nextStatus === "COMPLETED"
+				? generateStellarTransaction()
+				: transaction.stellar_tx_hash,
+		confirmed_at:
+			nextStatus === "COMPLETED"
+				? new Date().toISOString()
+				: transaction.confirmed_at,
+	};
 }
 
 export function generateStellarTransaction(): string {
-  return `GBUL${Math.random().toString(36).substring(2, 15).toUpperCase()}${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
+	return `GBUL${Math.random().toString(36).substring(2, 15).toUpperCase()}${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
 }
 
-export function formatCurrency(amount: number, currency: string = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-  }).format(amount);
+export function formatCurrency(
+	amount: number | string,
+	currency: string = "USD",
+): string {
+	const numericAmount =
+		typeof amount === "number" ? amount : Number.parseFloat(amount);
+
+	return new Intl.NumberFormat("en-US", {
+		style: "currency",
+		currency,
+	}).format(Number.isFinite(numericAmount) ? numericAmount : 0);
 }
 
-export function calculatePayrollTotals(payments: Payment[]) {
-  return {
-    pending: payments.filter((p) => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0),
-    processing: payments.filter((p) => p.status === 'processing').reduce((sum, p) => sum + p.amount, 0),
-    completed: payments.filter((p) => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0),
-    failed: payments.filter((p) => p.status === 'failed').reduce((sum, p) => sum + p.amount, 0),
-  };
+function parseTransactionAmount(transaction: PayrollTransaction) {
+	const amount = Number.parseFloat(transaction.amount);
+	return Number.isFinite(amount) ? amount : 0;
+}
+
+export function calculatePayrollTotals(transactions: PayrollTransaction[]) {
+	return {
+		pending: transactions
+			.filter((transaction) => transaction.status === "PENDING")
+			.reduce((sum, transaction) => sum + parseTransactionAmount(transaction), 0),
+		processing: transactions
+			.filter((transaction) => transaction.status === "PROCESSING")
+			.reduce((sum, transaction) => sum + parseTransactionAmount(transaction), 0),
+		completed: transactions
+			.filter((transaction) => transaction.status === "COMPLETED")
+			.reduce((sum, transaction) => sum + parseTransactionAmount(transaction), 0),
+		failed: transactions
+			.filter((transaction) => transaction.status === "FAILED")
+			.reduce((sum, transaction) => sum + parseTransactionAmount(transaction), 0),
+	};
 }

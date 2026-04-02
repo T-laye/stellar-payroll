@@ -1,122 +1,70 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-
-export interface PayrollGroup {
-	id: string;
-	name: string;
-	description: string;
-	frequency: "weekly" | "biweekly" | "monthly";
-	employees: string[]; // employee IDs
-	dueDate: string;
-	status: "draft" | "pending" | "approved" | "paid";
-	totalAmount: number;
-	currency: string;
-	createdAt: string;
-}
-
-export interface Payment {
-	id: string;
-	groupId: string;
-	employeeId: string;
-	amount: number;
-	currency: string;
-	status: "pending" | "processing" | "completed" | "failed";
-	stellarTxHash?: string;
-	createdAt: string;
-	completedAt?: string;
-}
+import {
+	type PayrollGroup,
+	type PayrollRun,
+	type PayrollTransaction,
+} from "@/services/payroll.service";
 
 interface PayrollState {
 	groups: PayrollGroup[];
-	payments: Payment[];
-	addGroup: (group: Omit<PayrollGroup, "id" | "createdAt">) => void;
-	updateGroup: (id: string, group: Partial<PayrollGroup>) => void;
-	deleteGroup: (id: string) => void;
-	getGroup: (id: string) => PayrollGroup | undefined;
-	getGroups: () => PayrollGroup[];
-	addPayment: (payment: Omit<Payment, "id" | "createdAt">) => void;
-	updatePayment: (id: string, payment: Partial<Payment>) => void;
-	getPaymentsByGroup: (groupId: string) => Payment[];
-	getPaymentsByEmployee: (employeeId: string) => Payment[];
+	runs: PayrollRun[];
+	schedule: PayrollRun[];
+	selectedRun: PayrollRun | null;
+	runTransactions: Record<string, PayrollTransaction[]>;
+	setGroups: (groups: PayrollGroup[]) => void;
+	upsertGroup: (group: PayrollGroup) => void;
+	removeGroup: (groupId: string) => void;
+	setRuns: (runs: PayrollRun[]) => void;
+	upsertRun: (run: PayrollRun) => void;
+	setSelectedRun: (run: PayrollRun | null) => void;
+	setSchedule: (runs: PayrollRun[]) => void;
+	setRunTransactions: (runId: string, transactions: PayrollTransaction[]) => void;
+	clearPayroll: () => void;
 }
 
-// Collision-safe ID generator — timestamp + 6 random chars
-const uid = (prefix: string) =>
-	`${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+export type Payment = PayrollTransaction;
 
-export const usePayrollStore = create<PayrollState>()(
-	persist(
-		(set, get) => ({
+export const usePayrollStore = create<PayrollState>()((set) => ({
+	groups: [],
+	runs: [],
+	schedule: [],
+	selectedRun: null,
+	runTransactions: {},
+	setGroups: (groups) => set({ groups }),
+	upsertGroup: (group) =>
+		set((state) => ({
+			groups: state.groups.some((item) => item.id === group.id)
+				? state.groups.map((item) => (item.id === group.id ? group : item))
+				: [group, ...state.groups],
+		})),
+	removeGroup: (groupId) =>
+		set((state) => ({
+			groups: state.groups.filter((group) => group.id !== groupId),
+		})),
+	setRuns: (runs) => set({ runs }),
+	upsertRun: (run) =>
+		set((state) => ({
+			runs: state.runs.some((item) => item.id === run.id)
+				? state.runs.map((item) => (item.id === run.id ? run : item))
+				: [run, ...state.runs],
+			selectedRun:
+				state.selectedRun?.id === run.id ? run : state.selectedRun,
+		})),
+	setSelectedRun: (selectedRun) => set({ selectedRun }),
+	setSchedule: (schedule) => set({ schedule }),
+	setRunTransactions: (runId, transactions) =>
+		set((state) => ({
+			runTransactions: {
+				...state.runTransactions,
+				[runId]: transactions,
+			},
+		})),
+	clearPayroll: () =>
+		set({
 			groups: [],
-			payments: [],
-
-			addGroup: (group) => {
-				const newGroup: PayrollGroup = {
-					...group,
-					id: uid("group"),
-					createdAt: new Date().toISOString(),
-				};
-				set((state) => ({
-					groups: [...state.groups, newGroup],
-				}));
-				return newGroup.id;
-			},
-
-			updateGroup: (id, updates) => {
-				set((state) => ({
-					groups: state.groups.map((group) =>
-						group.id === id ? { ...group, ...updates } : group,
-					),
-				}));
-			},
-
-			deleteGroup: (id) => {
-				set((state) => ({
-					groups: state.groups.filter((group) => group.id !== id),
-					// Also clean up all payments belonging to this group
-					payments: state.payments.filter((payment) => payment.groupId !== id),
-				}));
-			},
-
-			getGroup: (id) => {
-				return get().groups.find((group) => group.id === id);
-			},
-
-			getGroups: () => {
-				return get().groups;
-			},
-
-			addPayment: (payment) => {
-				const newPayment: Payment = {
-					...payment,
-					id: uid("pay"), // ✅ unique even when called in a tight loop
-					createdAt: new Date().toISOString(),
-				};
-				set((state) => ({
-					payments: [...state.payments, newPayment],
-				}));
-			},
-
-			updatePayment: (id, updates) => {
-				set((state) => ({
-					payments: state.payments.map((payment) =>
-						payment.id === id ? { ...payment, ...updates } : payment,
-					),
-				}));
-			},
-
-			getPaymentsByGroup: (groupId) => {
-				return get().payments.filter((payment) => payment.groupId === groupId);
-			},
-
-			getPaymentsByEmployee: (employeeId) => {
-				return get().payments.filter(
-					(payment) => payment.employeeId === employeeId,
-				);
-			},
+			runs: [],
+			schedule: [],
+			selectedRun: null,
+			runTransactions: {},
 		}),
-		{
-			name: "stellar_payroll",
-		},
-	),
-);
+}));

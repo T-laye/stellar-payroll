@@ -45,38 +45,45 @@ export const ChangeVerificationEmailSchema = z.object({
 // Employee Schemas
 export const EmployeeSchema = z
 	.object({
-		name: z.string().min(2, "Name must be at least 2 characters"),
+		first_name: z.string().min(2, "First name must be at least 2 characters"),
+		last_name: z.string().min(2, "Last name must be at least 2 characters"),
 		email: z.string().email("Invalid email address"),
 		country: z.string().min(2, "Country is required"),
-		salary: z.coerce.number().positive("Salary must be positive"),
-		currency: z.string().length(3, "Currency code must be 3 letters"),
-		paymentMethod: z.enum(["bank_transfer", "stellar_wallet"]),
-		walletAddress: z.string().optional(),
-		bankAccount: z.string().optional(),
-		status: z.enum(["active", "inactive"]),
-		joinDate: z.string().date(),
-	})
-	.refine(
-		(data) => {
-			if (data.paymentMethod === "stellar_wallet" && !data.walletAddress) {
-				return false;
-			}
-			return true;
-		},
-		{
-			message: "Wallet address required for Stellar payment method",
-			path: ["walletAddress"],
-		},
-	);
+		department: z.string().min(2, "Department is required"),
+		employment_type: z.enum([
+			"FULL_TIME",
+			"PART_TIME",
+			"CONTRACT",
+			"INTERN",
+			"TEMPORARY",
+		]),
+		external_id: z.string().optional(),
+		group_id: z.string().optional(),
+		job_title: z.string().min(2, "Job title is required"),
+		phone: z.string().min(7, "Phone number is required"),
+		salary_amount: z.string().min(1, "Salary amount is required"),
+		salary_currency: z.string().min(3, "Currency code must be at least 3 letters"),
+		start_date: z.string().date(),
+		status: z.enum(["ACTIVE", "INACTIVE", "TERMINATED"]).optional(),
+		end_date: z.string().optional(),
+	});
 
 // Payroll Group Schemas
 export const PayrollGroupSchema = z.object({
 	name: z.string().min(3, "Name must be at least 3 characters"),
-	description: z.string().optional(),
-	employees: z.array(z.string()).min(1, "Select at least one employee"),
-	frequency: z.enum(["weekly", "biweekly", "monthly"]),
-	dueDate: z.string().date(),
-	currency: z.string().length(3, "Currency code must be 3 letters"),
+	description: z.string().min(2, "Description is required"),
+	currency: z.string().min(3, "Currency code must be at least 3 characters"),
+	pay_cycle: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
+	timezone: z.string().min(2, "Timezone is required"),
+});
+
+export const PayrollRunSchema = z.object({
+	group_id: z.string().min(1, "Payroll group is required"),
+	currency: z.string().min(3, "Currency code must be at least 3 characters"),
+	notes: z.string().optional(),
+	period_start: z.string().date(),
+	period_end: z.string().date(),
+	scheduled_at: z.string().min(1, "Schedule is required"),
 });
 
 // Types
@@ -89,3 +96,4 @@ export type ChangeVerificationEmailFormData = z.infer<
 >;
 export type EmployeeFormData = z.infer<typeof EmployeeSchema>;
 export type PayrollGroupFormData = z.infer<typeof PayrollGroupSchema>;
+export type PayrollRunFormData = z.infer<typeof PayrollRunSchema>;

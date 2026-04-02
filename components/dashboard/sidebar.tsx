@@ -8,6 +8,8 @@ import {
 	Briefcase,
 	Send,
 	BarChart3,
+	Wallet,
+	ShieldCheck,
 	Settings,
 	LogOut,
 	ChevronRight,
@@ -27,6 +29,8 @@ const navItems = [
 		icon: Briefcase,
 	},
 	{ label: "Payments", href: routes.dashboardRoutes.PAYMENTS, icon: Send },
+	{ label: "Wallets", href: routes.dashboardRoutes.WALLETS, icon: Wallet },
+	{ label: "Roles", href: routes.dashboardRoutes.ROLES, icon: ShieldCheck },
 	{ label: "Settings", href: routes.dashboardRoutes.SETTINGS, icon: Settings },
 ];
 

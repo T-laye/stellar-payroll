@@ -1,31 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useCurrentUser, useUpdateCurrentUser } from "@/hooks/user.hook";
-import {
-	useCompanyPermissions,
-	useCompanyRoles,
-	useCreateRole,
-	useDeleteRole,
-	useUpdateRole,
-} from "@/hooks/role.hook";
-import { useRoleStore } from "@/lib/stores/role-store";
-import { type Role } from "@/services/role.service";
+import { useCompanyDetails, useUpdateCompany } from "@/hooks/company.hook";
+import { useCompanyStore } from "@/lib/stores/company-store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useForm } from "react-hook-form";
@@ -38,21 +27,28 @@ import {
 	ShieldCheck,
 	Key,
 	AlertTriangle,
-	Plus,
 	Loader2,
 	Eye,
 	EyeOff,
 	Check,
 	Pencil,
 	X,
-	UsersRound,
-	Trash2,
-	Lock,
+	Globe,
 } from "lucide-react";
+import { currencies } from "@/lib/utils/constants";
 
 const ProfileSchema = z.object({
 	first_name: z.string().min(2, "First name must be at least 2 characters"),
 	last_name: z.string().min(2, "Last name must be at least 2 characters"),
+});
+
+const CompanyProfileSchema = z.object({
+	name: z.string().min(2, "Company name must be at least 2 characters"),
+	default_currency: z.string().min(3, "Currency is required"),
+	logo_url: z.string().optional(),
+	phone: z.string().optional(),
+	timezone: z.string().min(2, "Timezone is required"),
+	website: z.string().optional(),
 });
 
 const PasswordSchema = z
@@ -67,36 +63,8 @@ const PasswordSchema = z
 	});
 
 type ProfileFormData = z.infer<typeof ProfileSchema>;
+type CompanyProfileFormData = z.infer<typeof CompanyProfileSchema>;
 type PasswordFormData = z.infer<typeof PasswordSchema>;
-
-interface RoleFormState {
-	name: string;
-	slug: string;
-	description: string;
-	permissions: string[];
-	is_active: boolean;
-}
-
-const emptyRoleForm: RoleFormState = {
-	name: "",
-	slug: "",
-	description: "",
-	permissions: [],
-	is_active: true,
-};
-
-function slugify(value: string) {
-	return value
-		.toLowerCase()
-		.trim()
-		.replace(/[^a-z0-9\s-]/g, "")
-		.replace(/\s+/g, "-")
-		.replace(/-+/g, "-");
-}
-
-function isOwnerRole(role: Pick<Role, "slug"> | null) {
-	return role?.slug === "owner";
-}
 
 function FadeUp({
 	children,
@@ -111,8 +79,8 @@ function FadeUp({
 	const [inView, setInView] = useState(false);
 
 	useEffect(() => {
-		const el = ref.current;
-		if (!el) return;
+		const element = ref.current;
+		if (!element) return;
 
 		const observer = new IntersectionObserver(
 			([entry]) => {
@@ -124,7 +92,7 @@ function FadeUp({
 			{ threshold: 0.1 },
 		);
 
-		observer.observe(el);
+		observer.observe(element);
 		return () => observer.disconnect();
 	}, []);
 
@@ -344,17 +312,6 @@ function ProfileForm() {
 					</div>
 				</Field>
 
-				<Field label="Company">
-					<div className="relative">
-						<Building className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-						<Input
-							value={user?.company ?? ""}
-							disabled
-							className="cursor-default bg-muted/40 pl-9"
-						/>
-					</div>
-				</Field>
-
 				<Field label="Account Role">
 					<div className="relative">
 						<ShieldCheck className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -365,7 +322,7 @@ function ProfileForm() {
 						/>
 					</div>
 					<p className="mt-1 text-xs text-muted-foreground">
-						Role cannot be changed here. Contact your admin.
+						Role changes are managed from the dedicated roles page.
 					</p>
 				</Field>
 			</div>
@@ -396,6 +353,237 @@ function ProfileForm() {
 							) : (
 								<>
 									<Check className="h-4 w-4" /> Save Changes
+								</>
+							)}
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={handleCancel}
+							disabled={isSaving}
+							className="gap-2"
+						>
+							<X className="h-4 w-4" /> Cancel
+						</Button>
+					</>
+				)}
+			</div>
+		</form>
+	);
+}
+
+function CompanyForm() {
+	const user = useAuthStore((state) => state.user);
+	const company = useCompanyStore((state) => state.company);
+	const [isEditing, setIsEditing] = useState(false);
+	useCompanyDetails();
+	const { mutateAsync: saveCompany, isPending: isSaving } = useUpdateCompany();
+
+	const {
+		register,
+		handleSubmit,
+		reset,
+		setValue,
+		formState: { errors, isDirty },
+	} = useForm<CompanyProfileFormData>({
+		resolver: zodResolver(CompanyProfileSchema),
+		defaultValues: {
+			name: company?.name ?? user?.company ?? "",
+			default_currency: company?.default_currency ?? "USDC",
+			logo_url: company?.logo_url ?? "",
+			phone: company?.phone ?? "",
+			timezone: company?.timezone ?? "",
+			website: company?.website ?? "",
+		},
+	});
+
+	useEffect(() => {
+		reset({
+			name: company?.name ?? user?.company ?? "",
+			default_currency: company?.default_currency ?? "USDC",
+			logo_url: company?.logo_url ?? "",
+			phone: company?.phone ?? "",
+			timezone: company?.timezone ?? "",
+			website: company?.website ?? "",
+		});
+	}, [
+		company?.default_currency,
+		company?.logo_url,
+		company?.name,
+		company?.phone,
+		company?.timezone,
+		company?.website,
+		reset,
+		user?.company,
+	]);
+
+	const handleCancel = () => {
+		reset({
+			name: company?.name ?? user?.company ?? "",
+			default_currency: company?.default_currency ?? "USDC",
+			logo_url: company?.logo_url ?? "",
+			phone: company?.phone ?? "",
+			timezone: company?.timezone ?? "",
+			website: company?.website ?? "",
+		});
+		setIsEditing(false);
+	};
+
+	const onSubmit = async (data: CompanyProfileFormData) => {
+		try {
+			await saveCompany({
+				name: data.name.trim(),
+				default_currency: data.default_currency.trim().toUpperCase(),
+				logo_url: data.logo_url?.trim() || undefined,
+				phone: data.phone?.trim() || undefined,
+				timezone: data.timezone.trim(),
+				website: data.website?.trim() || undefined,
+			});
+			toast.success("Company profile updated", {
+				description: "Your company settings have been saved.",
+			});
+			setIsEditing(false);
+		} catch (error) {
+			toast.error("Failed to update company", {
+				description:
+					error instanceof Error ? error.message : "Please try again.",
+			});
+		}
+	};
+
+	return (
+		<form onSubmit={handleSubmit(onSubmit)} noValidate>
+			<div className="grid gap-4 sm:grid-cols-2">
+				<Field label="Company Name" error={errors.name?.message}>
+					<div className="relative">
+						<Building className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							{...register("name")}
+							disabled={!isEditing}
+							className={cn("pl-9", !isEditing && "bg-muted/40")}
+						/>
+					</div>
+				</Field>
+
+				<Field label="Company Email">
+					<div className="relative">
+						<Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							value={company?.email ?? ""}
+							disabled
+							className="bg-muted/40 pl-9"
+						/>
+					</div>
+				</Field>
+
+				<Field label="Country">
+					<div className="relative">
+						<Globe className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							value={company?.country ?? ""}
+							disabled
+							className="bg-muted/40 pl-9"
+						/>
+					</div>
+				</Field>
+
+				<Field label="Slug">
+					<div className="relative">
+						<Building className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							value={company?.slug ?? ""}
+							disabled
+							className="bg-muted/40 pl-9"
+						/>
+					</div>
+				</Field>
+
+				<Field
+					label="Default Currency"
+					error={errors.default_currency?.message}
+				>
+					<Select
+						defaultValue={company?.default_currency ?? "USDC"}
+						onValueChange={(value) =>
+							setValue("default_currency", value, { shouldDirty: true })
+						}
+						disabled={!isEditing}
+					>
+						<SelectTrigger className={!isEditing ? "bg-muted/40" : ""}>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{currencies.map((currency) => (
+								<SelectItem key={currency.value} value={currency.value}>
+									{currency.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</Field>
+
+				<Field label="Timezone" error={errors.timezone?.message}>
+					<Input
+						{...register("timezone")}
+						disabled={!isEditing}
+						className={!isEditing ? "bg-muted/40" : ""}
+						placeholder="Africa/Lagos"
+					/>
+				</Field>
+
+				<Field label="Phone Number" error={errors.phone?.message}>
+					<Input
+						{...register("phone")}
+						disabled={!isEditing}
+						className={!isEditing ? "bg-muted/40" : ""}
+						placeholder="+234..."
+					/>
+				</Field>
+
+				<Field label="Website" error={errors.website?.message}>
+					<Input
+						{...register("website")}
+						disabled={!isEditing}
+						className={!isEditing ? "bg-muted/40" : ""}
+						placeholder="https://example.com"
+					/>
+				</Field>
+
+				<Field label="Logo URL" error={errors.logo_url?.message}>
+					<Input
+						{...register("logo_url")}
+						disabled={!isEditing}
+						className={!isEditing ? "bg-muted/40" : ""}
+						placeholder="https://cdn.example.com/logo.png"
+					/>
+				</Field>
+			</div>
+
+			<div className="mt-6 flex items-center gap-3">
+				{!isEditing ? (
+					<Button
+						type="button"
+						variant="outline"
+						className="gap-2"
+						onClick={() => setIsEditing(true)}
+					>
+						<Pencil className="h-4 w-4" />
+						Edit Company
+					</Button>
+				) : (
+					<>
+						<Button
+							type="submit"
+							disabled={isSaving || !isDirty}
+							className="gap-2 shadow-sm"
+						>
+							{isSaving ? (
+								<>
+									<Loader2 className="h-4 w-4 animate-spin" /> Saving...
+								</>
+							) : (
+								<>
+									<Check className="h-4 w-4" /> Save Company
 								</>
 							)}
 						</Button>
@@ -577,427 +765,6 @@ function PasswordForm() {
 	);
 }
 
-function RolesManager() {
-	const companyId = useAuthStore((state) => state.user?.company_id);
-	const roles = useRoleStore((state) => state.roles);
-	const permissions = useRoleStore((state) => state.permissions);
-	const { isLoading: rolesLoading, isFetching: rolesFetching } =
-		useCompanyRoles(companyId ?? undefined);
-	const { isLoading: permissionsLoading } = useCompanyPermissions(
-		companyId ?? undefined,
-	);
-	const { mutateAsync: createRole, isPending: isCreating } = useCreateRole(
-		companyId ?? undefined,
-	);
-	const [editingRole, setEditingRole] = useState<Role | null>(null);
-	const { mutateAsync: updateRole, isPending: isUpdating } = useUpdateRole(
-		editingRole?.id ?? "",
-		companyId ?? undefined,
-	);
-	const { mutateAsync: deleteRole, isPending: isDeleting } = useDeleteRole(
-		companyId ?? undefined,
-	);
-	const [dialogOpen, setDialogOpen] = useState(false);
-	const [slugTouched, setSlugTouched] = useState(false);
-	const [formState, setFormState] = useState<RoleFormState>(emptyRoleForm);
-
-	const groupedPermissions = useMemo(() => {
-		return permissions.reduce<Record<string, string[]>>((acc, permission) => {
-			const group = permission.includes(":")
-				? permission.split(":")[0]
-				: "general";
-			const title = group.charAt(0).toUpperCase() + group.slice(1);
-			acc[title] = acc[title] ? [...acc[title], permission] : [permission];
-			return acc;
-		}, {});
-	}, [permissions]);
-
-	const resetDialog = () => {
-		setEditingRole(null);
-		setFormState(emptyRoleForm);
-		setSlugTouched(false);
-		setDialogOpen(false);
-	};
-
-	const openCreateDialog = () => {
-		setEditingRole(null);
-		setFormState(emptyRoleForm);
-		setSlugTouched(false);
-		setDialogOpen(true);
-	};
-
-	const openEditDialog = (role: Role) => {
-		if (isOwnerRole(role)) {
-			toast.info("Owner role is locked", {
-				description: "The owner role and its permissions cannot be edited.",
-			});
-			return;
-		}
-
-		setEditingRole(role);
-		setFormState({
-			name: role.name,
-			slug: role.slug,
-			description: role.description,
-			permissions: role.permissions.includes("*") ? [] : role.permissions,
-			is_active: role.is_active,
-		});
-		setSlugTouched(true);
-		setDialogOpen(true);
-	};
-
-	const togglePermission = (permission: string, checked: boolean) => {
-		setFormState((current) => ({
-			...current,
-			permissions: checked
-				? [...current.permissions, permission]
-				: current.permissions.filter((item) => item !== permission),
-		}));
-	};
-
-	const handleNameChange = (value: string) => {
-		setFormState((current) => ({
-			...current,
-			name: value,
-			slug:
-				editingRole || slugTouched ? current.slug : slugify(value || current.slug),
-		}));
-	};
-
-	const handleSubmit = async () => {
-		const name = formState.name.trim();
-		const slug = formState.slug.trim();
-		const description = formState.description.trim();
-
-		if (!name || (!editingRole && !slug)) {
-			toast.error("Role name and slug are required.");
-			return;
-		}
-
-		if (!formState.permissions.length) {
-			toast.error("Select at least one permission for this role.");
-			return;
-		}
-
-		try {
-			if (editingRole) {
-				await updateRole({
-					name,
-					description,
-					is_active: formState.is_active,
-					permissions: formState.permissions,
-				});
-				toast.success("Role updated successfully.");
-			} else {
-				await createRole({
-					name,
-					slug,
-					description,
-					permissions: formState.permissions,
-				});
-				toast.success("Role created successfully.");
-			}
-
-			resetDialog();
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to save role.",
-			);
-		}
-	};
-
-	const handleDelete = async (role: Role) => {
-		if (isOwnerRole(role)) {
-			toast.info("Owner role is locked", {
-				description: "The owner role cannot be deleted.",
-			});
-			return;
-		}
-
-		const confirmed = window.confirm(
-			`Delete the "${role.name}" role? This action cannot be undone.`,
-		);
-
-		if (!confirmed) {
-			return;
-		}
-
-		try {
-			await deleteRole(role.id);
-			toast.success("Role deleted successfully.");
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to delete role.",
-			);
-		}
-	};
-
-	if (!companyId) {
-		return (
-			<div className="rounded-2xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-				Company context is required before roles can be managed.
-			</div>
-		);
-	}
-
-	const isSavingRole = isCreating || isUpdating;
-
-	return (
-		<>
-			<div className="space-y-4">
-				<div className="flex flex-wrap items-start justify-between gap-3">
-					<div>
-						<p className="text-sm font-medium text-foreground">
-							Company Roles
-						</p>
-						<p className="mt-0.5 text-xs text-muted-foreground">
-							Default roles appear automatically for every company. The owner
-							role is locked, but you can create custom roles and edit other
-							roles as needed.
-						</p>
-					</div>
-					<Button className="gap-2" onClick={openCreateDialog}>
-						<Plus className="h-4 w-4" />
-						Create Role
-					</Button>
-				</div>
-
-				{rolesLoading || permissionsLoading ? (
-					<div className="rounded-2xl border border-border bg-muted/40 p-6 text-sm text-muted-foreground">
-						Loading roles and permissions...
-					</div>
-				) : roles.length === 0 ? (
-					<div className="rounded-2xl border border-border bg-muted/40 p-6 text-sm text-muted-foreground">
-						No roles found for this company yet.
-					</div>
-				) : (
-					<div className="grid gap-4">
-						{roles.map((role) => {
-							const locked = isOwnerRole(role);
-							const previewPermissions = role.permissions.includes("*")
-								? ["Full platform access"]
-								: role.permissions.slice(0, 4);
-
-							return (
-								<div
-									key={role.id}
-									className="rounded-2xl border border-border bg-muted/20 p-4"
-								>
-									<div className="flex flex-wrap items-start justify-between gap-3">
-										<div className="space-y-2">
-											<div className="flex flex-wrap items-center gap-2">
-												<p className="text-sm font-semibold text-foreground">
-													{role.name}
-												</p>
-												<Badge variant="outline">{role.slug}</Badge>
-												{role.is_system && (
-													<Badge variant="secondary">System</Badge>
-												)}
-												{locked && (
-													<Badge variant="outline" className="gap-1">
-														<Lock className="h-3 w-3" />
-														Locked
-													</Badge>
-												)}
-												{!role.is_active && (
-													<Badge variant="destructive">Inactive</Badge>
-												)}
-											</div>
-											<p className="text-sm text-muted-foreground">
-												{role.description || "No description provided."}
-											</p>
-											<div className="flex flex-wrap gap-2">
-												{previewPermissions.map((permission) => (
-													<Badge
-														key={`${role.id}-${permission}`}
-														variant="outline"
-													>
-														{permission}
-													</Badge>
-												))}
-												{role.permissions.length > 4 &&
-													!role.permissions.includes("*") && (
-														<Badge variant="outline">
-															+{role.permissions.length - 4} more
-														</Badge>
-													)}
-											</div>
-										</div>
-
-										<div className="flex flex-wrap items-center gap-2">
-											<Button
-												variant="outline"
-												size="sm"
-												className="gap-2"
-												onClick={() => openEditDialog(role)}
-												disabled={locked || rolesFetching}
-											>
-												<Pencil className="h-4 w-4" />
-												Edit
-											</Button>
-											<Button
-												variant="outline"
-												size="sm"
-												className="gap-2 text-destructive hover:text-destructive"
-												onClick={() => handleDelete(role)}
-												disabled={locked || isDeleting}
-											>
-												<Trash2 className="h-4 w-4" />
-												Delete
-											</Button>
-										</div>
-									</div>
-								</div>
-							);
-						})}
-					</div>
-				)}
-			</div>
-
-			<Dialog open={dialogOpen} onOpenChange={(open) => !open && resetDialog()}>
-				<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
-					<DialogHeader>
-						<DialogTitle>
-							{editingRole ? `Edit ${editingRole.name}` : "Create Role"}
-						</DialogTitle>
-						<DialogDescription>
-							Choose a role name, add a description, and assign the exact
-							permissions this role should have.
-						</DialogDescription>
-					</DialogHeader>
-
-					<div className="grid gap-4 sm:grid-cols-2">
-						<Field label="Role Name">
-							<Input
-								value={formState.name}
-								onChange={(event) => handleNameChange(event.target.value)}
-								placeholder="Payroll Reviewer"
-							/>
-						</Field>
-
-						<Field label="Slug">
-							<Input
-								value={formState.slug}
-								onChange={(event) => {
-									setSlugTouched(true);
-									setFormState((current) => ({
-										...current,
-										slug: slugify(event.target.value),
-									}));
-								}}
-								disabled={Boolean(editingRole)}
-								placeholder="payroll-reviewer"
-							/>
-						</Field>
-					</div>
-
-					<Field label="Description">
-						<Textarea
-							value={formState.description}
-							onChange={(event) =>
-								setFormState((current) => ({
-									...current,
-									description: event.target.value,
-								}))
-							}
-							placeholder="Describe what this role is allowed to do."
-						/>
-					</Field>
-
-					{editingRole && (
-						<label className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-3">
-							<Checkbox
-								checked={formState.is_active}
-								onCheckedChange={(checked) =>
-									setFormState((current) => ({
-										...current,
-										is_active: checked === true,
-									}))
-								}
-							/>
-							<div>
-								<p className="text-sm font-medium text-foreground">
-									Role is active
-								</p>
-								<p className="text-xs text-muted-foreground">
-									Inactive roles remain visible but can be treated as disabled.
-								</p>
-							</div>
-						</label>
-					)}
-
-					<div className="space-y-3">
-						<div>
-							<p className="text-sm font-medium text-foreground">Permissions</p>
-							<p className="mt-0.5 text-xs text-muted-foreground">
-								Select all permissions that should be granted to this role.
-							</p>
-						</div>
-
-						<div className="grid gap-4 md:grid-cols-2">
-							{Object.entries(groupedPermissions).map(([group, items]) => (
-								<div
-									key={group}
-									className="rounded-2xl border border-border bg-muted/20 p-4"
-								>
-									<p className="mb-3 text-sm font-semibold text-foreground">
-										{group}
-									</p>
-									<div className="space-y-3">
-										{items.map((permission) => {
-											const checked = formState.permissions.includes(permission);
-
-											return (
-												<label
-													key={permission}
-													className="flex items-start gap-3"
-												>
-													<Checkbox
-														checked={checked}
-														onCheckedChange={(value) =>
-															togglePermission(permission, value === true)
-														}
-													/>
-													<div className="space-y-1">
-														<p className="text-sm font-medium text-foreground">
-															{permission}
-														</p>
-														<p className="text-xs text-muted-foreground">
-															{permission.replace(":", " ").replace(/-/g, " ")}
-														</p>
-													</div>
-												</label>
-											);
-										})}
-									</div>
-								</div>
-							))}
-						</div>
-					</div>
-
-					<DialogFooter>
-						<Button variant="outline" onClick={resetDialog}>
-							Cancel
-						</Button>
-						<Button onClick={handleSubmit} disabled={isSavingRole}>
-							{isSavingRole ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Saving...
-								</>
-							) : editingRole ? (
-								"Save Role"
-							) : (
-								"Create Role"
-							)}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</>
-	);
-}
-
 export default function SettingsPage() {
 	const handleComingSoon = (feature: string) => {
 		toast.info(`${feature} coming soon`, {
@@ -1006,19 +773,30 @@ export default function SettingsPage() {
 	};
 
 	return (
-		<div className="max-w-4xl space-y-6 sm:space-y-8">
+		<div className="max-w-5xl space-y-6 sm:space-y-8">
 			<FadeUp>
 				<div>
 					<h1 className="text-2xl font-bold text-foreground sm:text-3xl">
 						Settings
 					</h1>
 					<p className="mt-1 text-sm text-muted-foreground">
-						Manage your account details, security, and company roles.
+						Manage your account details, company profile, password, and personal
+						security preferences.
 					</p>
 				</div>
 			</FadeUp>
 
 			<FadeUp delay={60}>
+				<SettingsCard
+					icon={Building}
+					title="Company Profile"
+					description="Update company information used across payroll operations"
+				>
+					<CompanyForm />
+				</SettingsCard>
+			</FadeUp>
+
+			<FadeUp delay={120}>
 				<SettingsCard
 					icon={User}
 					title="Account Information"
@@ -1028,7 +806,7 @@ export default function SettingsPage() {
 				</SettingsCard>
 			</FadeUp>
 
-			<FadeUp delay={120}>
+			<FadeUp delay={180}>
 				<SettingsCard
 					icon={Key}
 					title="Security"
@@ -1073,16 +851,6 @@ export default function SettingsPage() {
 							</Button>
 						</div>
 					</div>
-				</SettingsCard>
-			</FadeUp>
-
-			<FadeUp delay={180}>
-				<SettingsCard
-					icon={UsersRound}
-					title="Roles And Permissions"
-					description="Create, update, and delete roles while assigning permissions"
-				>
-					<RolesManager />
 				</SettingsCard>
 			</FadeUp>
 
