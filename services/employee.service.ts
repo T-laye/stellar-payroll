@@ -25,6 +25,7 @@ export interface CompanyEmployee {
 	email: string;
 	employee_number: string;
 	employment_type: string;
+	role_slug: string;
 	end_date: string | null;
 	external_id: string;
 	first_name: string;
@@ -108,6 +109,7 @@ export interface CreateEmployeePayload extends Record<string, unknown> {
 	salary_amount: string;
 	salary_currency: string;
 	start_date: string;
+	role_slug: string;
 }
 
 export interface UpdateEmployeePayload extends Record<string, unknown> {
@@ -123,6 +125,7 @@ export interface UpdateEmployeePayload extends Record<string, unknown> {
 	salary_amount?: string;
 	salary_currency?: string;
 	status?: string;
+	role_slug?: string;
 }
 
 export interface LinkEmployeeWalletPayload extends Record<string, unknown> {
@@ -172,7 +175,10 @@ export function updateCompanyEmployee(
 	);
 }
 
-export function terminateCompanyEmployee(companyId: string, employeeId: string) {
+export function terminateCompanyEmployee(
+	companyId: string,
+	employeeId: string,
+) {
 	return apiClient.delete<GenericEmployeeResponse>(
 		EMPLOYEE_ENDPOINTS.detail(companyId, employeeId),
 		getAuthOptions(),

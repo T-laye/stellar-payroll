@@ -1,7 +1,30 @@
+/* @import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"); */
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+
+@font-face {
+  font-family: "Satoshi-Variable";
+  src:
+    url("/fonts/Satoshi-Variable.woff2") format("woff2"),
+    url("/fonts/Satoshi-Variable.woff") format("woff"),
+    url("/fonts/Satoshi-Variable.ttf") format("truetype");
+  font-weight: 300 900;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Satoshi-VariableItalic";
+  src:
+    url("/fonts/Satoshi-VariableItalic.woff2") format("woff2"),
+    url("/fonts/Satoshi-VariableItalic.woff") format("woff"),
+    url("/fonts/Satoshi-VariableItalic.ttf") format("truetype");
+  font-weight: 300 900;
+  font-display: swap;
+  font-style: italic;
+}
 
 :root {
   --background: oklch(1 0 0);
@@ -75,7 +98,7 @@
 }
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
+	--font-sans: "Rubik", 'san-serif';
   --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -114,15 +137,16 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
-html {
-  scroll-behavior: smooth;
-}
+  html {
+    scroll-behavior: smooth;
+  }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
+     font-family: "Satoshi-Variable", sans-serif;
     @apply bg-background text-foreground;
   }
 }

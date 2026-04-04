@@ -67,9 +67,11 @@ export function useCompanyEmployeeStats(companyId?: string) {
 	return query;
 }
 
-export function useCompanyOverviewStats(companyId?: string) {
+export function useCompanyOverviewStats(companyId: string) {
 	const resolvedCompanyId = useResolvedCompanyId(companyId);
 	const setOverviewStats = useStatsStore((state) => state.setOverviewStats);
+
+	console.log("company id", companyId);
 
 	const query = useQuery({
 		queryKey: ["stats", "overview", resolvedCompanyId],

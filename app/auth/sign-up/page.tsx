@@ -184,7 +184,7 @@ export default function Page() {
 			email: "",
 			password: "",
 			confirmPassword: "",
-			role_slug: "admin",
+			role_slug: "owner",
 		},
 	});
 
@@ -500,7 +500,6 @@ export default function Page() {
 											<SelectItem value="owner">Owner</SelectItem>
 											<SelectItem value="admin">Admin</SelectItem>
 											<SelectItem value="hr-manager">HR Manager</SelectItem>
-											<SelectItem value="viewer">Viewer</SelectItem>
 										</SelectContent>
 									</Select>
 									{/* Dynamic role description */}

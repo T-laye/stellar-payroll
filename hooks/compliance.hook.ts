@@ -14,7 +14,7 @@ function requireCompanyId(companyId: string | null) {
 	return companyId;
 }
 
-export function useCompanyCompliance(companyId?: string) {
+export function useCompanyCompliance(companyId: string) {
 	const currentCompanyId = useAuthStore((state) => state.user?.company_id);
 	const resolvedCompanyId = companyId ?? currentCompanyId ?? null;
 	const setStats = useComplianceStore((state) => state.setStats);

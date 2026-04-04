@@ -13,7 +13,7 @@ import {
 } from "@/services/auth.service";
 import { type CurrentUserData } from "@/services/user.service";
 
-export type UserRole = "owner" | "admin" | "hr-manager" | "viewer";
+export type UserRole = "owner" | "admin" | "hr-manager";
 
 export interface User {
 	id: string;

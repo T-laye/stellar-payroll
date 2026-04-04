@@ -39,6 +39,7 @@ import {
 } from "@/lib/utils/stats";
 
 function CompanyOverview() {
+	const { user } = useAuthStore();
 	const employees = useEmployeeStore((state) => state.employees);
 	const payrollGroups = usePayrollStore((state) => state.groups);
 	const payrollRuns = usePayrollStore((state) => state.runs);
@@ -47,9 +48,11 @@ function CompanyOverview() {
 	useCompanyPayrollGroups();
 	usePayrollRuns();
 
-	const overviewQuery = useCompanyOverviewStats();
-	const complianceQuery = useCompanyCompliance();
-	const walletQuery = useCompanyWallet();
+	console.log(user?.company_id, "user");
+
+	const overviewQuery = useCompanyOverviewStats(user?.company_id || "");
+	const complianceQuery = useCompanyCompliance(user?.company_id || "");
+	const walletQuery = useCompanyWallet(user?.company_id || "");
 
 	const overview = overviewQuery.data?.data;
 	const compliance = complianceQuery.data?.data;
@@ -105,6 +108,8 @@ function CompanyOverview() {
 			href: routes.dashboardRoutes.WALLETS,
 		},
 	];
+
+	console.log(overview);
 
 	return (
 		<>

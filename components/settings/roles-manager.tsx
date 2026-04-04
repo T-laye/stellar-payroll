@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import DeleteDialog from "../shared/DeleteDialog";
 
 interface RoleFormState {
 	name: string;
@@ -95,6 +96,10 @@ export function RolesManager() {
 	const [slugTouched, setSlugTouched] = useState(false);
 	const [formState, setFormState] = useState<RoleFormState>(emptyRoleForm);
 
+	// Delete dialog state
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+
 	const groupedPermissions = useMemo(() => {
 		return permissions.reduce<Record<string, string[]>>((acc, permission) => {
 			const group = permission.includes(":")
@@ -154,7 +159,9 @@ export function RolesManager() {
 			...current,
 			name: value,
 			slug:
-				editingRole || slugTouched ? current.slug : slugify(value || current.slug),
+				editingRole || slugTouched
+					? current.slug
+					: slugify(value || current.slug),
 		}));
 	};
 
@@ -200,25 +207,24 @@ export function RolesManager() {
 		}
 	};
 
-	const handleDelete = async (role: Role) => {
+	const handleDeleteClick = (role: Role) => {
 		if (isOwnerRole(role)) {
 			toast.info("Owner role is locked", {
 				description: "The owner role cannot be deleted.",
 			});
 			return;
 		}
+		setRoleToDelete(role);
+		setDeleteDialogOpen(true);
+	};
 
-		const confirmed = window.confirm(
-			`Delete the "${role.name}" role? This action cannot be undone.`,
-		);
-
-		if (!confirmed) {
-			return;
-		}
-
+	const handleDeleteConfirm = async () => {
+		if (!roleToDelete) return;
 		try {
-			await deleteRole(role.id);
+			await deleteRole(roleToDelete.id);
 			toast.success("Role deleted successfully.");
+			setDeleteDialogOpen(false);
+			setRoleToDelete(null);
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "Failed to delete role.",
@@ -331,7 +337,7 @@ export function RolesManager() {
 												variant="outline"
 												size="sm"
 												className="gap-2 text-destructive hover:text-destructive"
-												onClick={() => handleDelete(role)}
+												onClick={() => handleDeleteClick(role)}
 												disabled={locked || isDeleting}
 											>
 												<Trash2 className="h-4 w-4" />
@@ -346,6 +352,7 @@ export function RolesManager() {
 				)}
 			</div>
 
+			{/* Create / Edit Dialog */}
 			<Dialog open={dialogOpen} onOpenChange={(open) => !open && resetDialog()}>
 				<DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
 					<DialogHeader>
@@ -406,6 +413,7 @@ export function RolesManager() {
 										is_active: checked === true,
 									}))
 								}
+								className="border-muted-foreground data-[state=checked]:border-primary"
 							/>
 							<div>
 								<p className="text-sm font-medium text-foreground">
@@ -437,7 +445,8 @@ export function RolesManager() {
 									</p>
 									<div className="space-y-3">
 										{items.map((permission) => {
-											const checked = formState.permissions.includes(permission);
+											const checked =
+												formState.permissions.includes(permission);
 
 											return (
 												<label
@@ -449,6 +458,7 @@ export function RolesManager() {
 														onCheckedChange={(value) =>
 															togglePermission(permission, value === true)
 														}
+														className="border-muted-foreground data-[state=checked]:border-primary"
 													/>
 													<div className="space-y-1">
 														<p className="text-sm font-medium text-foreground">
@@ -486,6 +496,19 @@ export function RolesManager() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{/* Delete Confirmation Dialog */}
+			<DeleteDialog
+				open={deleteDialogOpen}
+				onOpenChange={(open) => {
+					setDeleteDialogOpen(open);
+					if (!open) setRoleToDelete(null);
+				}}
+				title={`Delete "${roleToDelete?.name}"`}
+				description={`This will permanently remove the "${roleToDelete?.name}" role. Any employees assigned to this role may lose access. This action cannot be undone.`}
+				onConfirm={handleDeleteConfirm}
+				isLoading={isDeleting}
+			/>
 		</>
 	);
 }

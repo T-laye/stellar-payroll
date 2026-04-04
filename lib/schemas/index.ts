@@ -14,14 +14,23 @@ export const SignupSchema = z
 	.object({
 		first_name: z.string().min(2, "First name must be at least 2 characters"),
 		last_name: z.string().min(2, "Last name must be at least 2 characters"),
-		company_name: z.string().min(2, "Company name must be at least 2 characters"),
-		company_country: z.string().min(2, "Company country must be at least 2 characters"),
-		company_slug: z.string().min(2, "Company slug must be at least 2 characters"),
-		company_timezone: z.string().min(2, "Company timezone must be at least 2 characters"),
+		company_name: z
+			.string()
+			.min(2, "Company name must be at least 2 characters"),
+		company_country: z
+			.string()
+			.min(2, "Company country must be at least 2 characters"),
+		company_slug: z
+			.string()
+			.min(3, "Company slug must be at least 3 characters")
+			.max(50, "Company slug must be at most 50 characters"),
+		company_timezone: z
+			.string()
+			.min(2, "Company timezone must be at least 2 characters"),
 		email: z.string().email("Invalid email address"),
 		password: z.string().min(8, "Password must be at least 8 characters"),
 		confirmPassword: z.string(),
-		role_slug: z.enum(["owner", "admin", "hr-manager", "viewer"]),
+		role_slug: z.enum(["owner", "admin", "hr-manager"]),
 	})
 	.refine((data) => data.password === data.confirmPassword, {
 		message: "Passwords don't match",
@@ -43,30 +52,32 @@ export const ChangeVerificationEmailSchema = z.object({
 });
 
 // Employee Schemas
-export const EmployeeSchema = z
-	.object({
-		first_name: z.string().min(2, "First name must be at least 2 characters"),
-		last_name: z.string().min(2, "Last name must be at least 2 characters"),
-		email: z.string().email("Invalid email address"),
-		country: z.string().min(2, "Country is required"),
-		department: z.string().min(2, "Department is required"),
-		employment_type: z.enum([
-			"FULL_TIME",
-			"PART_TIME",
-			"CONTRACT",
-			"INTERN",
-			"TEMPORARY",
-		]),
-		external_id: z.string().optional(),
-		group_id: z.string().optional(),
-		job_title: z.string().min(2, "Job title is required"),
-		phone: z.string().min(7, "Phone number is required"),
-		salary_amount: z.string().min(1, "Salary amount is required"),
-		salary_currency: z.string().min(3, "Currency code must be at least 3 letters"),
-		start_date: z.string().date(),
-		status: z.enum(["ACTIVE", "INACTIVE", "TERMINATED"]).optional(),
-		end_date: z.string().optional(),
-	});
+export const EmployeeSchema = z.object({
+	first_name: z.string().min(2, "First name must be at least 2 characters"),
+	last_name: z.string().min(2, "Last name must be at least 2 characters"),
+	email: z.string().email("Invalid email address"),
+	country: z.string().min(2, "Country is required"),
+	department: z.string().min(2, "Department is required"),
+	employment_type: z.enum([
+		"FULL_TIME",
+		"PART_TIME",
+		"CONTRACT",
+		"INTERN",
+		"TEMPORARY",
+	]),
+	external_id: z.string().optional(),
+	group_id: z.string().optional(),
+	job_title: z.string().min(2, "Job title is required"),
+	phone: z.string().min(7, "Phone number is required"),
+	salary_amount: z.string().min(1, "Salary amount is required"),
+	salary_currency: z
+		.string()
+		.min(3, "Currency code must be at least 3 letters"),
+	start_date: z.string().date(),
+	status: z.enum(["ACTIVE", "INACTIVE", "TERMINATED"]).optional(),
+	end_date: z.string().optional(),
+	role_slug: z.string().min(1, "Role is required"),
+});
 
 // Payroll Group Schemas
 export const PayrollGroupSchema = z.object({

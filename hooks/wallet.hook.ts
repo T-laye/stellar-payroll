@@ -54,7 +54,7 @@ export function hasFreshWalletVerification(pinVerifiedAt?: string | null) {
 	return Date.now() - verifiedAt < WALLET_PIN_WINDOW_MS;
 }
 
-export function useCompanyWallet(companyId?: string) {
+export function useCompanyWallet(companyId: string) {
 	const resolvedCompanyId = useResolvedCompanyId(companyId);
 	const setStats = useWalletStore((state) => state.setStats);
 
