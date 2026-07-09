@@ -118,19 +118,19 @@ export default function EmployeesPage() {
 	const selectedWallet =
 		(detailsEmployeeId && employeeWallets[detailsEmployeeId]) || null;
 
-	// console.log("employees", employees);
-
 	const filteredEmployees = useMemo(() => {
 		return employees.filter((employee) => {
-			const displayName = getEmployeeDisplayName(employee).toLowerCase();
 			const query = search.toLowerCase();
+			const searchableFields = [
+				getEmployeeDisplayName(employee),
+				employee.email,
+				employee.department,
+				employee.job_title,
+				employee.country,
+			];
 
-			return (
-				displayName.includes(query) ||
-				employee.email.toLowerCase().includes(query) ||
-				employee.department.toLowerCase().includes(query) ||
-				employee.job_title.toLowerCase().includes(query) ||
-				employee.country.toLowerCase().includes(query)
+			return searchableFields.some((field) =>
+				(field ?? "").toLowerCase().includes(query),
 			);
 		});
 	}, [employees, search]);
@@ -505,14 +505,14 @@ export default function EmployeesPage() {
 												</div>
 											</td>
 											<td className="px-4 py-3 text-muted-foreground">
-												{employee.department}
+												{employee.department ?? "—"}
 											</td>
 											<td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-												{employee.job_title}
+												{employee.job_title ?? "—"}
 											</td>
 											<td className="px-4 py-3 font-medium text-foreground">
 												{formatStatAmount(getEmployeeSalaryValue(employee))}{" "}
-												{employee.salary_currency}
+												{employee.salary_currency ?? ""}
 											</td>
 											<td className="hidden px-4 py-3 md:table-cell">
 												{employee.wallet ? (
@@ -528,7 +528,7 @@ export default function EmployeesPage() {
 												)}
 											</td>
 											<td className="px-4 py-3">
-												<StatusBadge status={employee.status.toLowerCase()} />
+												<StatusBadge status={(employee.status ?? "inactive").toLowerCase()} />
 											</td>
 											<td className="px-4 py-3">
 												<div className="flex justify-end gap-1">

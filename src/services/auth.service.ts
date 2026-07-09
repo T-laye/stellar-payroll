@@ -1,4 +1,5 @@
-import { apiClient } from "@/lib/api/client";
+import axios from "axios";
+import { ApiError, axiosInstance } from "@/config/axios";
 import {
 	getStoredAuthHeaders,
 	type StoredAuthSession,
@@ -38,11 +39,13 @@ export interface AuthUserResponse {
 	last_name?: string;
 	role_slug?: string;
 	role_name?: string;
+	company_id?: string;
 	company_name?: string;
 	company_slug?: string;
 }
 
 export interface AuthResponseData {
+	company_id?: string;
 	company_slug?: string;
 	redirect_url?: string;
 	session?: AuthSessionResponse;
@@ -58,41 +61,108 @@ export interface AuthResponse {
 	token?: string;
 }
 
-export function signIn(payload: SigninFormData) {
-	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.SIGN_IN, payload);
+function getErrorMessage(data: unknown, fallback: string) {
+	if (!data || typeof data !== "object") {
+		return fallback;
+	}
+
+	const errorData = data as Record<string, unknown>;
+	const message = errorData.message;
+
+	if (typeof message === "string" && message.trim()) {
+		return message;
+	}
+
+	return fallback;
 }
 
-export function signup(payload: SignupFormData) {
-	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.SIGN_UP, payload);
+function normalizeAuthError(error: unknown): never {
+	if (axios.isAxiosError(error)) {
+		throw new ApiError(
+			getErrorMessage(error.response?.data, error.message || "Request failed"),
+			error.response?.status ?? 500,
+			error.response?.data,
+		);
+	}
+
+	if (error instanceof Error) {
+		throw new ApiError(error.message, 500, error);
+	}
+
+	throw new ApiError("Request failed", 500, error);
 }
 
-export function forgotPassword(payload: ForgotPasswordFormData) {
-	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.FORGOT_PASSWORD, payload);
+export async function signIn(payload: SigninFormData) {
+	try {
+		const response = await axiosInstance.post<AuthResponse>(
+			AUTH_ENDPOINTS.SIGN_IN,
+			payload,
+		);
+		return response.data;
+	} catch (error) {
+		normalizeAuthError(error);
+	}
 }
 
-export function resetPassword(
+export async function signup(payload: SignupFormData) {
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.SIGN_UP,
+		payload,
+	);
+	return response.data;
+}
+
+export async function forgotPassword(payload: ForgotPasswordFormData) {
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.FORGOT_PASSWORD,
+		payload,
+	);
+	return response.data;
+}
+
+export async function resetPassword(
 	payload: ResetPasswordFormData & { token: string; email?: string },
 ) {
-	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.RESET_PASSWORD, payload);
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.RESET_PASSWORD,
+		payload,
+	);
+	return response.data;
 }
 
-export function resendVerificationEmail(payload: { email: string }) {
-	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.RESEND_VERIFICATION, payload);
+export async function resendVerificationEmail(payload: { email: string }) {
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.RESEND_VERIFICATION,
+		payload,
+	);
+	return response.data;
 }
 
-export function changeVerificationEmail(payload: ChangeVerificationEmailFormData) {
-	return apiClient.patch<AuthResponse>(
+export async function changeVerificationEmail(
+	payload: ChangeVerificationEmailFormData,
+) {
+	const response = await axiosInstance.patch<AuthResponse>(
 		AUTH_ENDPOINTS.CHANGE_VERIFICATION_EMAIL,
 		payload,
 	);
+	return response.data;
 }
 
-export function verifyEmail(payload: { token: string; email?: string }) {
-	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.VERIFY_EMAIL, payload);
+export async function verifyEmail(payload: { token: string; email?: string }) {
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.VERIFY_EMAIL,
+		payload,
+	);
+	return response.data;
 }
 
-export function signOut(session?: StoredAuthSession | null) {
-	return apiClient.post<AuthResponse>(AUTH_ENDPOINTS.SIGN_OUT, undefined, {
-		headers: getStoredAuthHeaders(session),
-	});
+export async function signOut(session?: StoredAuthSession | null) {
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.SIGN_OUT,
+		undefined,
+		{
+			headers: getStoredAuthHeaders(session),
+		},
+	);
+	return response.data;
 }

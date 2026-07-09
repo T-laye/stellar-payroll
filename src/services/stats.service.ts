@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api/client";
+import { axiosInstance } from "@/config/axios";
 import { getStoredAuthHeaders } from "@/lib/auth/session";
 
 export const STATS_ENDPOINTS = {
@@ -137,51 +137,58 @@ function getAuthOptions() {
 	};
 }
 
-export function getComplianceStats(companyId: string) {
-	return apiClient.get<StatsResponse<ComplianceStats>>(
+export async function getComplianceStats(companyId: string) {
+	const response = await axiosInstance.get<StatsResponse<ComplianceStats>>(
 		STATS_ENDPOINTS.compliance(companyId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getEmployeeStats(companyId: string) {
-	return apiClient.get<StatsResponse<EmployeeStats>>(
+export async function getEmployeeStats(companyId: string) {
+	const response = await axiosInstance.get<StatsResponse<EmployeeStats>>(
 		STATS_ENDPOINTS.employees(companyId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getMyStats() {
-	return apiClient.get<StatsResponse<MyStats>>(
+export async function getMyStats() {
+	const response = await axiosInstance.get<StatsResponse<MyStats>>(
 		STATS_ENDPOINTS.my,
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getOverviewStats(companyId: string) {
-	return apiClient.get<StatsResponse<OverviewStats>>(
+export async function getOverviewStats(companyId: string) {
+	const response = await axiosInstance.get<StatsResponse<OverviewStats>>(
 		STATS_ENDPOINTS.overview(companyId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getPayrollStats(companyId: string) {
-	return apiClient.get<StatsResponse<PayrollStats>>(
+export async function getPayrollStats(companyId: string) {
+	const response = await axiosInstance.get<StatsResponse<PayrollStats>>(
 		STATS_ENDPOINTS.payroll(companyId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getTransactionStats(companyId: string) {
-	return apiClient.get<StatsResponse<TransactionStats>>(
+export async function getTransactionStats(companyId: string) {
+	const response = await axiosInstance.get<StatsResponse<TransactionStats>>(
 		STATS_ENDPOINTS.transactions(companyId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getWalletStats(companyId: string) {
-	return apiClient.get<StatsResponse<WalletStats>>(
+export async function getWalletStats(companyId: string) {
+	const response = await axiosInstance.get<StatsResponse<WalletStats>>(
 		STATS_ENDPOINTS.wallets(companyId),
 		getAuthOptions(),
 	);
+	return response.data;
 }

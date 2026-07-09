@@ -1,4 +1,5 @@
-import { apiClient } from "@/lib/api/client";
+import axios from "axios";
+import { ApiError, axiosInstance } from "@/config/axios";
 import { getStoredAuthHeaders } from "@/lib/auth/session";
 
 export const PAYROLL_ENDPOINTS = {
@@ -140,107 +141,179 @@ function getAuthOptions() {
 	};
 }
 
-export function getPayrollGroups(companyId: string) {
-	return apiClient.get<PayrollGroupListResponse>(
+function getErrorMessage(data: unknown, fallback: string) {
+	if (!data || typeof data !== "object") {
+		return fallback;
+	}
+
+	const errorData = data as Record<string, unknown>;
+	const message = errorData.message;
+	const error = errorData.error;
+
+	if (typeof message === "string" && message.trim()) {
+		return message;
+	}
+
+	if (Array.isArray(message) && message.length > 0) {
+		return message.filter(Boolean).join(", ");
+	}
+
+	if (typeof error === "string" && error.trim()) {
+		return error;
+	}
+
+	return fallback;
+}
+
+function normalizePayrollError(error: unknown): never {
+	if (axios.isAxiosError(error)) {
+		throw new ApiError(
+			getErrorMessage(error.response?.data, error.message || "Request failed"),
+			error.response?.status ?? 500,
+			error.response?.data,
+		);
+	}
+
+	if (error instanceof Error) {
+		throw new ApiError(error.message, 500, error);
+	}
+
+	throw new ApiError("Request failed", 500, error);
+}
+
+export async function getPayrollGroups(companyId: string) {
+	const response = await axiosInstance.get<PayrollGroupListResponse>(
 		PAYROLL_ENDPOINTS.groups(companyId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function createPayrollGroup(
+export async function createPayrollGroup(
 	companyId: string,
 	payload: CreatePayrollGroupPayload,
 ) {
-	return apiClient.post<PayrollGroupResponse>(
-		PAYROLL_ENDPOINTS.groups(companyId),
-		payload,
-		getAuthOptions(),
-	);
+	try {
+		const response = await axiosInstance.post<PayrollGroupResponse>(
+			PAYROLL_ENDPOINTS.groups(companyId),
+			payload,
+			getAuthOptions(),
+		);
+		return response.data;
+	} catch (error) {
+		normalizePayrollError(error);
+	}
 }
 
-export function updatePayrollGroup(
+export async function updatePayrollGroup(
 	companyId: string,
 	groupId: string,
 	payload: UpdatePayrollGroupPayload,
 ) {
-	return apiClient.patch<PayrollGroupResponse>(
-		PAYROLL_ENDPOINTS.group(companyId, groupId),
-		payload,
-		getAuthOptions(),
-	);
+	try {
+		const response = await axiosInstance.patch<PayrollGroupResponse>(
+			PAYROLL_ENDPOINTS.group(companyId, groupId),
+			payload,
+			getAuthOptions(),
+		);
+		return response.data;
+	} catch (error) {
+		normalizePayrollError(error);
+	}
 }
 
-export function deletePayrollGroup(companyId: string, groupId: string) {
-	return apiClient.delete<GenericPayrollResponse>(
+export async function deletePayrollGroup(companyId: string, groupId: string) {
+	const response = await axiosInstance.delete<GenericPayrollResponse>(
 		PAYROLL_ENDPOINTS.group(companyId, groupId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getPayrollRuns() {
-	return apiClient.get<PayrollRunListResponse>(
+export async function getPayrollRuns() {
+	const response = await axiosInstance.get<PayrollRunListResponse>(
 		PAYROLL_ENDPOINTS.runs,
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function createPayrollRun(payload: CreatePayrollRunPayload) {
-	return apiClient.post<PayrollRunResponse>(
-		PAYROLL_ENDPOINTS.runs,
-		payload,
-		getAuthOptions(),
-	);
+export async function createPayrollRun(payload: CreatePayrollRunPayload) {
+	try {
+		const response = await axiosInstance.post<PayrollRunResponse>(
+			PAYROLL_ENDPOINTS.runs,
+			payload,
+			getAuthOptions(),
+		);
+		return response.data;
+	} catch (error) {
+		normalizePayrollError(error);
+	}
 }
 
-export function getPayrollRun(runId: string) {
-	return apiClient.get<PayrollRunResponse>(
+export async function getPayrollRun(runId: string) {
+	const response = await axiosInstance.get<PayrollRunResponse>(
 		PAYROLL_ENDPOINTS.run(runId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function updatePayrollRun(runId: string, payload: UpdatePayrollRunPayload) {
-	return apiClient.patch<PayrollRunResponse>(
-		PAYROLL_ENDPOINTS.run(runId),
-		payload,
-		getAuthOptions(),
-	);
+export async function updatePayrollRun(
+	runId: string,
+	payload: UpdatePayrollRunPayload,
+) {
+	try {
+		const response = await axiosInstance.patch<PayrollRunResponse>(
+			PAYROLL_ENDPOINTS.run(runId),
+			payload,
+			getAuthOptions(),
+		);
+		return response.data;
+	} catch (error) {
+		normalizePayrollError(error);
+	}
 }
 
-export function approvePayrollRun(runId: string) {
-	return apiClient.post<PayrollRunResponse>(
+export async function approvePayrollRun(runId: string) {
+	const response = await axiosInstance.post<PayrollRunResponse>(
 		PAYROLL_ENDPOINTS.approveRun(runId),
 		undefined,
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function cancelPayrollRun(runId: string) {
-	return apiClient.post<PayrollRunResponse>(
+export async function cancelPayrollRun(runId: string) {
+	const response = await axiosInstance.post<PayrollRunResponse>(
 		PAYROLL_ENDPOINTS.cancelRun(runId),
 		undefined,
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function executePayrollRun(runId: string) {
-	return apiClient.post<GenericPayrollResponse>(
+export async function executePayrollRun(runId: string) {
+	const response = await axiosInstance.post<GenericPayrollResponse>(
 		PAYROLL_ENDPOINTS.executeRun(runId),
 		undefined,
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getPayrollRunTransactions(runId: string) {
-	return apiClient.get<PayrollTransactionListResponse>(
+export async function getPayrollRunTransactions(runId: string) {
+	const response = await axiosInstance.get<PayrollTransactionListResponse>(
 		PAYROLL_ENDPOINTS.runTransactions(runId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getPayrollSchedule() {
-	return apiClient.get<PayrollRunListResponse>(
+export async function getPayrollSchedule() {
+	const response = await axiosInstance.get<PayrollRunListResponse>(
 		PAYROLL_ENDPOINTS.schedule,
 		getAuthOptions(),
 	);
+	return response.data;
 }

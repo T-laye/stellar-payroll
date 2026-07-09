@@ -63,7 +63,10 @@ export function getEmployeeDisplayName(
 		return "Unknown";
 	}
 
-	const fullName = `${employee.first_name} ${employee.last_name}`.trim();
+	const fullName = [employee.first_name, employee.last_name]
+		.filter(Boolean)
+		.join(" ")
+		.trim();
 	return fullName || employee.email || "Unknown";
 }
 

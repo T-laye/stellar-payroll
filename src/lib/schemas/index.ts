@@ -61,18 +61,18 @@ export const EmployeeSchema = z.object({
 	employment_type: z.enum([
 		"FULL_TIME",
 		"PART_TIME",
-		"CONTRACT",
-		"INTERN",
-		"TEMPORARY",
+		"CONTRACTOR",
 	]),
 	external_id: z.string().optional(),
-	group_id: z.string().optional(),
+	group_id: z
+		.string()
+		.uuid("Group ID must be a valid UUID")
+		.or(z.literal(""))
+		.optional(),
 	job_title: z.string().min(2, "Job title is required"),
 	phone: z.string().min(7, "Phone number is required"),
 	salary_amount: z.string().min(1, "Salary amount is required"),
-	salary_currency: z
-		.string()
-		.min(3, "Currency code must be at least 3 letters"),
+	salary_currency: z.enum(["USDC", "XLM"]),
 	start_date: z.string().date(),
 	status: z.enum(["ACTIVE", "INACTIVE", "TERMINATED"]).optional(),
 	end_date: z.string().optional(),
@@ -83,19 +83,24 @@ export const EmployeeSchema = z.object({
 export const PayrollGroupSchema = z.object({
 	name: z.string().min(3, "Name must be at least 3 characters"),
 	description: z.string().min(2, "Description is required"),
-	currency: z.string().min(3, "Currency code must be at least 3 characters"),
+	currency: z.enum(["USDC", "XLM"]),
 	pay_cycle: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
 	timezone: z.string().min(2, "Timezone is required"),
 });
 
-export const PayrollRunSchema = z.object({
-	group_id: z.string().min(1, "Payroll group is required"),
-	currency: z.string().min(3, "Currency code must be at least 3 characters"),
-	notes: z.string().optional(),
-	period_start: z.string().date(),
-	period_end: z.string().date(),
-	scheduled_at: z.string().min(1, "Schedule is required"),
-});
+export const PayrollRunSchema = z
+	.object({
+		group_id: z.string().min(1, "Payroll group is required"),
+		currency: z.enum(["USDC", "XLM"]),
+		notes: z.string().optional(),
+		period_start: z.string().date(),
+		period_end: z.string().date(),
+		scheduled_at: z.string().min(1, "Schedule is required"),
+	})
+	.refine((data) => data.period_end >= data.period_start, {
+		message: "Period end must be on or after period start",
+		path: ["period_end"],
+	});
 
 // Types
 export type SigninFormData = z.infer<typeof SigninSchema>;

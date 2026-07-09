@@ -19,6 +19,7 @@ import { useCreateEmployee, useUpdateEmployee } from "@/hooks/employee.hook";
 import { useCompanyRoles } from "@/hooks/role.hook";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { type CompanyEmployee } from "@/services/employee.service";
+import { toast } from "sonner";
 import {
 	User,
 	Mail,
@@ -42,10 +43,13 @@ interface EmployeeFormProps {
 const employmentTypes = [
 	"FULL_TIME",
 	"PART_TIME",
-	"CONTRACT",
-	"INTERN",
-	"TEMPORARY",
+	"CONTRACTOR",
 ] as const;
+
+const salaryCurrencies = [
+	{ label: "USDC", value: "USDC" },
+	{ label: "Stellar Lumens (XLM)", value: "XLM" },
+];
 
 const employeeStatuses = ["ACTIVE", "INACTIVE", "TERMINATED"] as const;
 
@@ -102,7 +106,9 @@ export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
 		isLoading: rolesIsLoading,
 		isError: rolesIsError,
 	} = useCompanyRoles(companyId);
-	const roles = roleResponse?.data ?? [];
+	const roles = (roleResponse?.data ?? []).filter(
+		(role) => role.is_active && role.slug !== "owner",
+	);
 	const { mutateAsync: createEmployee, isPending: isCreating } =
 		useCreateEmployee(companyId ?? undefined);
 	const { mutateAsync: updateEmployee, isPending: isUpdating } =
@@ -124,7 +130,8 @@ export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
 			job_title: employee?.job_title ?? "",
 			phone: employee?.phone ?? "",
 			salary_amount: employee?.salary_amount ?? "",
-			salary_currency: employee?.salary_currency ?? "USDC",
+			salary_currency:
+				(employee?.salary_currency as "USDC" | "XLM") ?? "USDC",
 			start_date: employee?.start_date ? employee.start_date.split("T")[0] : "",
 			status:
 				(employee?.status as EmployeeFormData["status"]) ?? ("ACTIVE" as const),
@@ -167,20 +174,26 @@ export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
 			...(data.group_id?.trim() ? { group_id: data.group_id.trim() } : {}),
 		};
 
-		if (employee) {
-			await updateEmployee({
-				...payload,
-				status: data.status,
-				end_date:
-					data.status === "TERMINATED"
-						? data.end_date || new Date().toISOString().split("T")[0]
-						: data.end_date || undefined,
-			});
-		} else {
-			await createEmployee(payload);
-		}
+		try {
+			if (employee) {
+				await updateEmployee({
+					...payload,
+					status: data.status,
+					end_date:
+						data.status === "TERMINATED"
+							? data.end_date || new Date().toISOString().split("T")[0]
+							: data.end_date || undefined,
+				});
+			} else {
+				await createEmployee(payload);
+			}
 
-		onSuccess?.();
+			onSuccess?.();
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to save employee.",
+			);
+		}
 	};
 
 	return (
@@ -361,14 +374,14 @@ export function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
 						<Select
 							value={watch("salary_currency")}
 							onValueChange={(value) =>
-								setValue("salary_currency", value, { shouldDirty: true })
+								setValue("salary_currency", value as "USDC" | "XLM", { shouldDirty: true })
 							}
 						>
 							<SelectTrigger>
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								{currencies.map((currency) => (
+								{salaryCurrencies.map((currency) => (
 									<SelectItem key={currency.value} value={currency.value}>
 										{currency.label}
 									</SelectItem>

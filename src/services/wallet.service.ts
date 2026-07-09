@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api/client";
+import { axiosInstance } from "@/config/axios";
 import { getStoredAuthHeaders } from "@/lib/auth/session";
 import {
 	getWalletStats,
@@ -120,7 +120,7 @@ export function getCompanyWalletStats(companyId: string) {
 }
 
 export function getCompanyWallets(companyId: string) {
-	return apiClient.get<CompanyWalletListResponse>(
+	return axiosInstance.get<CompanyWalletListResponse>(
 		COMPANY_WALLET_ENDPOINTS.list(companyId),
 		getAuthOptions(),
 	);
@@ -130,7 +130,7 @@ export function createCompanyWallet(
 	companyId: string,
 	payload: CreateCompanyWalletPayload,
 ) {
-	return apiClient.post<CompanyWalletResponse>(
+	return axiosInstance.post<CompanyWalletResponse>(
 		COMPANY_WALLET_ENDPOINTS.list(companyId),
 		payload,
 		getAuthOptions(),
@@ -138,7 +138,7 @@ export function createCompanyWallet(
 }
 
 export function getCompanyWallet(companyId: string, walletId: string) {
-	return apiClient.get<CompanyWalletResponse>(
+	return axiosInstance.get<CompanyWalletResponse>(
 		COMPANY_WALLET_ENDPOINTS.detail(companyId, walletId),
 		getAuthOptions(),
 	);
@@ -149,7 +149,7 @@ export function addCompanyWalletTrustline(
 	walletId: string,
 	payload: AddWalletTrustlinePayload,
 ) {
-	return apiClient.post<CompanyWalletResponse>(
+	return axiosInstance.post<CompanyWalletResponse>(
 		COMPANY_WALLET_ENDPOINTS.trustlines(companyId, walletId),
 		payload,
 		getAuthOptions(),
@@ -157,21 +157,21 @@ export function addCompanyWalletTrustline(
 }
 
 export function getMyWallet() {
-	return apiClient.get<MyWalletResponse>(
+	return axiosInstance.get<MyWalletResponse>(
 		MY_WALLET_ENDPOINTS.detail,
 		getAuthOptions(),
 	);
 }
 
 export function deleteMyWallet() {
-	return apiClient.delete<GenericWalletResponse>(
+	return axiosInstance.delete<GenericWalletResponse>(
 		MY_WALLET_ENDPOINTS.detail,
 		getAuthOptions(),
 	);
 }
 
 export function setMyWalletPin(payload: SetWalletPinPayload) {
-	return apiClient.post<GenericWalletResponse>(
+	return axiosInstance.post<GenericWalletResponse>(
 		MY_WALLET_ENDPOINTS.pin,
 		payload,
 		getAuthOptions(),
@@ -179,7 +179,7 @@ export function setMyWalletPin(payload: SetWalletPinPayload) {
 }
 
 export function changeMyWalletPin(payload: ChangeWalletPinPayload) {
-	return apiClient.patch<GenericWalletResponse>(
+	return axiosInstance.patch<GenericWalletResponse>(
 		MY_WALLET_ENDPOINTS.pin,
 		payload,
 		getAuthOptions(),
@@ -187,7 +187,7 @@ export function changeMyWalletPin(payload: ChangeWalletPinPayload) {
 }
 
 export function verifyMyWalletPin(payload: SetWalletPinPayload) {
-	return apiClient.post<GenericWalletResponse>(
+	return axiosInstance.post<GenericWalletResponse>(
 		MY_WALLET_ENDPOINTS.verifyPin,
 		payload,
 		getAuthOptions(),
@@ -195,14 +195,13 @@ export function verifyMyWalletPin(payload: SetWalletPinPayload) {
 }
 
 export function getMyWalletPrivateKey() {
-	return apiClient.get<GenericWalletResponse<string | Record<string, unknown>>>(
-		MY_WALLET_ENDPOINTS.privateKey,
-		getAuthOptions(),
-	);
+	return axiosInstance.get<
+		GenericWalletResponse<string | Record<string, unknown>>
+	>(MY_WALLET_ENDPOINTS.privateKey, getAuthOptions());
 }
 
 export function transferFromMyWallet(payload: TransferFromWalletPayload) {
-	return apiClient.post<GenericWalletResponse>(
+	return axiosInstance.post<GenericWalletResponse>(
 		MY_WALLET_ENDPOINTS.transfer,
 		payload,
 		getAuthOptions(),

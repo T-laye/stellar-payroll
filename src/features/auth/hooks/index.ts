@@ -39,11 +39,13 @@ export interface AuthUserResponse {
 	last_name?: string;
 	role_slug?: string;
 	role_name?: string;
+	company_id?: string;
 	company_name?: string;
 	company_slug?: string;
 }
 
 export interface AuthResponseData {
+	company_id?: string;
 	company_slug?: string;
 	redirect_url?: string;
 	session?: AuthSessionResponse;
@@ -61,33 +63,51 @@ export interface AuthResponse {
 
 // Service helper calls for Auth (unauthenticated)
 export async function signIn(payload: SigninFormData) {
-	const response = await axiosInstance.post<AuthResponse>(AUTH_ENDPOINTS.SIGN_IN, payload);
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.SIGN_IN,
+		payload,
+	);
+	console.log(response, 'login', payload)
 	return response.data;
 }
 
 export async function signup(payload: SignupFormData) {
-	const response = await axiosInstance.post<AuthResponse>(AUTH_ENDPOINTS.SIGN_UP, payload);
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.SIGN_UP,
+		payload,
+	);
 	return response.data;
 }
 
 export async function forgotPassword(payload: ForgotPasswordFormData) {
-	const response = await axiosInstance.post<AuthResponse>(AUTH_ENDPOINTS.FORGOT_PASSWORD, payload);
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.FORGOT_PASSWORD,
+		payload,
+	);
 	return response.data;
 }
 
 export async function resetPassword(
 	payload: ResetPasswordFormData & { token: string; email?: string },
 ) {
-	const response = await axiosInstance.post<AuthResponse>(AUTH_ENDPOINTS.RESET_PASSWORD, payload);
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.RESET_PASSWORD,
+		payload,
+	);
 	return response.data;
 }
 
 export async function resendVerificationEmail(payload: { email: string }) {
-	const response = await axiosInstance.post<AuthResponse>(AUTH_ENDPOINTS.RESEND_VERIFICATION, payload);
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.RESEND_VERIFICATION,
+		payload,
+	);
 	return response.data;
 }
 
-export async function changeVerificationEmail(payload: ChangeVerificationEmailFormData) {
+export async function changeVerificationEmail(
+	payload: ChangeVerificationEmailFormData,
+) {
 	const response = await axiosInstance.patch<AuthResponse>(
 		AUTH_ENDPOINTS.CHANGE_VERIFICATION_EMAIL,
 		payload,
@@ -96,7 +116,10 @@ export async function changeVerificationEmail(payload: ChangeVerificationEmailFo
 }
 
 export async function verifyEmail(payload: { token: string; email?: string }) {
-	const response = await axiosInstance.post<AuthResponse>(AUTH_ENDPOINTS.VERIFY_EMAIL, payload);
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.VERIFY_EMAIL,
+		payload,
+	);
 	return response.data;
 }
 
@@ -108,9 +131,13 @@ export async function signOut(session?: StoredAuthSession | null) {
 	if (session?.pay_token) {
 		headers["X-Pay-Token"] = session.pay_token;
 	}
-	const response = await axiosInstance.post<AuthResponse>(AUTH_ENDPOINTS.SIGN_OUT, undefined, {
-		headers,
-	});
+	const response = await axiosInstance.post<AuthResponse>(
+		AUTH_ENDPOINTS.SIGN_OUT,
+		undefined,
+		{
+			headers,
+		},
+	);
 	return response.data;
 }
 
@@ -120,6 +147,7 @@ export function useLogin() {
 		mutationKey: ["auth", "login"],
 		mutationFn: (payload: SigninFormData) => signIn(payload),
 		onSuccess: (response, variables) => {
+			console.log(response, 'login')
 			useAuthStore.getState().hydrateAuth(response, {
 				email: variables.email,
 			});

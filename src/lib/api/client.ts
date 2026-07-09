@@ -1,7 +1,5 @@
-const DEFAULT_API_BASE_URL = "https://payorbit-production.up.railway.app/api/v1";
-
-export const API_BASE_URL =
-	process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+import axios, { type AxiosRequestConfig } from "axios";
+import { axiosInstance } from "@/config/axios";
 
 type Primitive = string | number | boolean;
 type QueryValue = Primitive | null | undefined;
@@ -19,74 +17,26 @@ export class ApiError extends Error {
 	}
 }
 
-interface RequestOptions extends Omit<RequestInit, "body"> {
-	body?: BodyInit | Record<string, unknown> | null;
+interface RequestOptions extends Omit<
+	AxiosRequestConfig,
+	"url" | "data" | "params" | "headers"
+> {
+	body?: unknown;
 	query?: QueryParams;
-	headers?: HeadersInit;
-}
-
-function buildUrl(path: string, query?: QueryParams) {
-	const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-	const url = new URL(`${API_BASE_URL}${normalizedPath}`);
-
-	if (!query) {
-		return url.toString();
-	}
-
-	Object.entries(query).forEach(([key, value]) => {
-		if (value === null || value === undefined) {
-			return;
-		}
-
-		if (Array.isArray(value)) {
-			value.forEach((item) => {
-				if (item !== null && item !== undefined) {
-					url.searchParams.append(key, String(item));
-				}
-			});
-			return;
-		}
-
-		url.searchParams.set(key, String(value));
-	});
-
-	return url.toString();
-}
-
-function isFormData(value: unknown): value is FormData {
-	return typeof FormData !== "undefined" && value instanceof FormData;
-}
-
-function isBlob(value: unknown): value is Blob {
-	return typeof Blob !== "undefined" && value instanceof Blob;
+	headers?: Record<string, string> | HeadersInit;
 }
 
 function isJsonBody(body: RequestOptions["body"]) {
-	if (!body) {
+	if (body === null || body === undefined || typeof body === "string") {
 		return false;
 	}
 
 	return !(
-		typeof body === "string" ||
-		body instanceof URLSearchParams ||
-		isFormData(body) ||
-		isBlob(body) ||
-		body instanceof ArrayBuffer
+		body instanceof FormData ||
+		body instanceof Blob ||
+		body instanceof ArrayBuffer ||
+		body instanceof URLSearchParams
 	);
-}
-
-async function parseResponse(response: Response) {
-	const contentType = response.headers.get("content-type") ?? "";
-
-	if (contentType.includes("application/json")) {
-		return response.json();
-	}
-
-	if (contentType.startsWith("text/")) {
-		return response.text();
-	}
-
-	return null;
 }
 
 function getErrorMessage(data: unknown, fallback: string) {
@@ -107,36 +57,55 @@ function getErrorMessage(data: unknown, fallback: string) {
 	return fallback;
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+function normalizeError(error: unknown): never {
+	if (axios.isAxiosError(error)) {
+		const message = getErrorMessage(
+			error.response?.data,
+			error.message || "Request failed",
+		);
+		throw new ApiError(
+			message,
+			error.response?.status ?? 500,
+			error.response?.data,
+		);
+	}
+
+	if (error instanceof Error) {
+		throw new ApiError(error.message, 500, error);
+	}
+
+	throw new ApiError("Request failed", 500, error);
+}
+
+async function request<T>(
+	path: string,
+	options: RequestOptions = {},
+): Promise<T> {
 	const { body, query, headers, ...rest } = options;
 	const requestHeaders = new Headers(headers);
 
-	let requestBody: BodyInit | undefined;
+	let requestBody: unknown = body;
 
 	if (isJsonBody(body)) {
 		requestHeaders.set("Content-Type", "application/json");
 		requestBody = JSON.stringify(body);
-	} else if (body !== null && body !== undefined) {
-		requestBody = body as BodyInit;
 	}
 
-	const response = await fetch(buildUrl(path, query), {
-		...rest,
-		headers: requestHeaders,
-		body: requestBody,
-	});
+	try {
+		const response = await axiosInstance.request<T>({
+			...rest,
+			url: path.startsWith("/") ? path : `/${path}`,
+			headers: Object.fromEntries(requestHeaders.entries()),
+			params: query,
+			data: requestBody,
+		});
 
-	const data = await parseResponse(response);
-
-	if (!response.ok) {
-		throw new ApiError(
-			getErrorMessage(data, `Request failed with status ${response.status}`),
-			response.status,
-			data,
-		);
+		return response.data as T;
+	} catch (error) {
+		normalizeError(error);
 	}
 
-	return data as T;
+	throw new ApiError("Request failed", 500);
 }
 
 export const apiClient = {

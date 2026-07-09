@@ -8,22 +8,28 @@ import LoadingPage from "@/components/shared/LoadingPage";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 	const user = useAuthStore((state) => state.user);
+	const session = useAuthStore((state) => state.session);
 	const isHydrated = useAuthStore((state) => state._hydrated);
 	const router = useRouter();
+	const hasSession = Boolean(
+		user || session?.access_token || session?.pay_token,
+	);
 
 	useEffect(() => {
-		// Only check authentication after hydration is complete
-		if (isHydrated && !user) {
+		if (!isHydrated) {
+			return;
+		}
+
+		if (!hasSession) {
 			router.push(routes.authRoutes.SIGN_IN);
 		}
-	}, [user, isHydrated, router]);
+	}, [hasSession, isHydrated, router]);
 
-	// Show loading while hydrating
-	if (!isHydrated) {
+	if (!isHydrated && !hasSession) {
 		return <LoadingPage />;
 	}
 
-	if (!user) {
+	if (!hasSession) {
 		return (
 			<div className="flex items-center justify-center min-h-screen">
 				<div className="text-center">

@@ -55,16 +55,18 @@ export function CompanyWalletsManager() {
 	const selectedWallet = useWalletStore((state) => state.selectedWallet);
 	const { isLoading: isWalletsLoading, isError: isWalletsError } =
 		useCompanyWallets(companyId ?? undefined);
-	const { data: walletStatsResponse } = useCompanyWallet(companyId ?? undefined);
+	const { data: walletStatsResponse } = useCompanyWallet(companyId || "");
 	const { mutateAsync: createCompanyWallet, isPending: isCreatingWallet } =
 		useCreateCompanyWallet(companyId ?? undefined);
 	const { mutateAsync: addWalletTrustline, isPending: isAddingTrustline } =
-		useAddCompanyWalletTrustline(companyId ?? undefined);
+		useAddCompanyWalletTrustline(companyId ?? "");
 
 	const [detailsWalletId, setDetailsWalletId] = useState<string | null>(null);
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [trustlineDialogOpen, setTrustlineDialogOpen] = useState(false);
-	const [trustlineWalletId, setTrustlineWalletId] = useState<string | null>(null);
+	const [trustlineWalletId, setTrustlineWalletId] = useState<string | null>(
+		null,
+	);
 	const [createForm, setCreateForm] = useState({
 		stellar_address: "",
 		secret_key: "",
@@ -87,6 +89,8 @@ export function CompanyWalletsManager() {
 	const companyWalletTypes = Object.entries(
 		walletStats?.company_wallets_by_type ?? {},
 	);
+
+	console.log(wallets, 'wallet stuff');
 
 	if (!companyId) {
 		return (
@@ -149,7 +153,10 @@ export function CompanyWalletsManager() {
 			return;
 		}
 
-		if (!trustlineForm.asset_code.trim() || !trustlineForm.asset_issuer.trim()) {
+		if (
+			!trustlineForm.asset_code.trim() ||
+			!trustlineForm.asset_issuer.trim()
+		) {
 			toast.error("Asset code and issuer are required.");
 			return;
 		}
@@ -221,7 +228,9 @@ export function CompanyWalletsManager() {
 							<Card key={item.label} className="p-4">
 								<div className="flex items-start justify-between gap-3">
 									<div>
-										<p className="text-xs text-muted-foreground">{item.label}</p>
+										<p className="text-xs text-muted-foreground">
+											{item.label}
+										</p>
 										<p className="mt-2 text-2xl font-semibold text-foreground">
 											{item.value}
 										</p>
@@ -259,7 +268,7 @@ export function CompanyWalletsManager() {
 					</div>
 				) : (
 					<div className="grid gap-4">
-						{wallets.map((wallet) => {
+						{wallets?.map((wallet) => {
 							const isExpanded = detailsWalletId === wallet.id;
 							const isSelectedWallet = selectedWallet?.id === wallet.id;
 							const balances = isSelectedWallet ? selectedWallet.balances : [];

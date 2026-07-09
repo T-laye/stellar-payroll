@@ -1,9 +1,9 @@
-import { apiClient } from "@/lib/api/client";
+import { axiosInstance } from "@/config/axios";
 import { getStoredAuthHeaders } from "@/lib/auth/session";
 
 export const USER_ENDPOINTS = {
 	ME: "/users/me",
-	UPDATE_ME: "/user/me",
+	UPDATE_ME: "/users/me",
 } as const;
 
 export interface CurrentUserData {
@@ -31,14 +31,23 @@ export interface UpdateCurrentUserPayload extends Record<string, unknown> {
 	last_name: string;
 }
 
-export function getCurrentUser() {
-	return apiClient.get<CurrentUserResponse>(USER_ENDPOINTS.ME, {
-		headers: getStoredAuthHeaders(),
-	});
+export async function getCurrentUser() {
+	const response = await axiosInstance.get<CurrentUserResponse>(
+		USER_ENDPOINTS.ME,
+		{
+			headers: getStoredAuthHeaders(),
+		},
+	);
+	return response.data;
 }
 
-export function updateCurrentUser(payload: UpdateCurrentUserPayload) {
-	return apiClient.patch<CurrentUserResponse>(USER_ENDPOINTS.UPDATE_ME, payload, {
-		headers: getStoredAuthHeaders(),
-	});
+export async function updateCurrentUser(payload: UpdateCurrentUserPayload) {
+	const response = await axiosInstance.patch<CurrentUserResponse>(
+		USER_ENDPOINTS.UPDATE_ME,
+		payload,
+		{
+			headers: getStoredAuthHeaders(),
+		},
+	);
+	return response.data;
 }

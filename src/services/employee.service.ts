@@ -1,4 +1,5 @@
-import { apiClient } from "@/lib/api/client";
+import axios from "axios";
+import { ApiError, axiosInstance } from "@/config/axios";
 import { getStoredAuthHeaders } from "@/lib/auth/session";
 
 export const EMPLOYEE_ENDPOINTS = {
@@ -138,68 +139,122 @@ function getAuthOptions() {
 	};
 }
 
-export function getCompanyEmployees(companyId: string) {
-	return apiClient.get<EmployeeListResponse>(
+function getErrorMessage(data: unknown, fallback: string) {
+	if (!data || typeof data !== "object") {
+		return fallback;
+	}
+
+	const errorData = data as Record<string, unknown>;
+	const message = errorData.message;
+	const error = errorData.error;
+
+	if (typeof message === "string" && message.trim()) {
+		return message;
+	}
+
+	if (Array.isArray(message) && message.length > 0) {
+		return message.filter(Boolean).join(", ");
+	}
+
+	if (typeof error === "string" && error.trim()) {
+		return error;
+	}
+
+	return fallback;
+}
+
+function normalizeEmployeeError(error: unknown): never {
+	if (axios.isAxiosError(error)) {
+		throw new ApiError(
+			getErrorMessage(error.response?.data, error.message || "Request failed"),
+			error.response?.status ?? 500,
+			error.response?.data,
+		);
+	}
+
+	if (error instanceof Error) {
+		throw new ApiError(error.message, 500, error);
+	}
+
+	throw new ApiError("Request failed", 500, error);
+}
+
+export async function getCompanyEmployees(companyId: string) {
+	const response = await axiosInstance.get<EmployeeListResponse>(
 		EMPLOYEE_ENDPOINTS.list(companyId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function createCompanyEmployee(
+export async function createCompanyEmployee(
 	companyId: string,
 	payload: CreateEmployeePayload,
 ) {
-	return apiClient.post<EmployeeResponse>(
-		EMPLOYEE_ENDPOINTS.list(companyId),
-		payload,
-		getAuthOptions(),
-	);
+	try {
+		const response = await axiosInstance.post<EmployeeResponse>(
+			EMPLOYEE_ENDPOINTS.list(companyId),
+			payload,
+			getAuthOptions(),
+		);
+		return response.data;
+	} catch (error) {
+		normalizeEmployeeError(error);
+	}
 }
 
-export function getCompanyEmployee(companyId: string, employeeId: string) {
-	return apiClient.get<EmployeeResponse>(
+export async function getCompanyEmployee(
+	companyId: string,
+	employeeId: string,
+) {
+	const response = await axiosInstance.get<EmployeeResponse>(
 		EMPLOYEE_ENDPOINTS.detail(companyId, employeeId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function updateCompanyEmployee(
+export async function updateCompanyEmployee(
 	companyId: string,
 	employeeId: string,
 	payload: UpdateEmployeePayload,
 ) {
-	return apiClient.patch<EmployeeResponse>(
+	const response = await axiosInstance.patch<EmployeeResponse>(
 		EMPLOYEE_ENDPOINTS.detail(companyId, employeeId),
 		payload,
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function terminateCompanyEmployee(
+export async function terminateCompanyEmployee(
 	companyId: string,
 	employeeId: string,
 ) {
-	return apiClient.delete<GenericEmployeeResponse>(
+	const response = await axiosInstance.delete<GenericEmployeeResponse>(
 		EMPLOYEE_ENDPOINTS.detail(companyId, employeeId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function linkEmployeeWallet(
+export async function linkEmployeeWallet(
 	companyId: string,
 	employeeId: string,
 	payload: LinkEmployeeWalletPayload,
 ) {
-	return apiClient.post<GenericEmployeeResponse>(
+	const response = await axiosInstance.post<GenericEmployeeResponse>(
 		EMPLOYEE_ENDPOINTS.linkWallet(companyId, employeeId),
 		payload,
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getEmployeeWallet(employeeId: string) {
-	return apiClient.get<EmployeeWalletResponse>(
+export async function getEmployeeWallet(employeeId: string) {
+	const response = await axiosInstance.get<EmployeeWalletResponse>(
 		EMPLOYEE_ENDPOINTS.walletDetail(employeeId),
 		getAuthOptions(),
 	);
+	return response.data;
 }

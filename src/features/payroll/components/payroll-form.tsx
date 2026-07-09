@@ -11,6 +11,7 @@ import {
 	useUpdatePayrollGroup,
 } from "@/hooks/payroll.hook";
 import { type PayrollGroup } from "@/services/payroll.service";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,7 +22,6 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { currencies } from "@/lib/utils/constants";
 
 interface PayrollFormProps {
 	group?: PayrollGroup;
@@ -29,6 +29,14 @@ interface PayrollFormProps {
 }
 
 const payCycles = ["WEEKLY", "BIWEEKLY", "MONTHLY"] as const;
+const payrollCurrencies = [
+	{ label: "USDC", value: "USDC" },
+	{ label: "Stellar Lumens (XLM)", value: "XLM" },
+] as const;
+
+function getSupportedCurrency(currency?: string): PayrollGroupFormData["currency"] {
+	return currency === "USDC" || currency === "XLM" ? currency : "USDC";
+}
 
 export function PayrollForm({ group, onSuccess }: PayrollFormProps) {
 	const companyId = useAuthStore((state) => state.user?.company_id);
@@ -40,11 +48,11 @@ export function PayrollForm({ group, onSuccess }: PayrollFormProps) {
 		companyId ?? undefined,
 	);
 
-	const defaultValues = useMemo(
+	const defaultValues = useMemo<PayrollGroupFormData>(
 		() => ({
 			name: group?.name ?? "",
 			description: group?.description ?? "",
-			currency: group?.currency ?? company?.default_currency ?? "USDC",
+			currency: getSupportedCurrency(group?.currency ?? company?.default_currency),
 			pay_cycle:
 				(group?.pay_cycle as PayrollGroupFormData["pay_cycle"]) ?? "MONTHLY",
 			timezone: group?.timezone ?? company?.timezone ?? "",
@@ -73,16 +81,22 @@ export function PayrollForm({ group, onSuccess }: PayrollFormProps) {
 			timezone: data.timezone.trim(),
 		};
 
-		if (group) {
-			await updateGroup({
-				...payload,
-				is_active: group.is_active,
-			});
-		} else {
-			await createGroup(payload);
-		}
+		try {
+			if (group) {
+				await updateGroup({
+					...payload,
+					is_active: group.is_active,
+				});
+			} else {
+				await createGroup(payload);
+			}
 
-		onSuccess?.();
+			onSuccess?.();
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to save payroll group.",
+			);
+		}
 	};
 
 	return (
@@ -146,14 +160,16 @@ export function PayrollForm({ group, onSuccess }: PayrollFormProps) {
 					<Select
 						defaultValue={defaultValues.currency}
 						onValueChange={(value) =>
-							setValue("currency", value, { shouldDirty: true })
+							setValue("currency", value as PayrollGroupFormData["currency"], {
+								shouldDirty: true,
+							})
 						}
 					>
 						<SelectTrigger>
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							{currencies.map((currency) => (
+							{payrollCurrencies.map((currency) => (
 								<SelectItem key={currency.value} value={currency.value}>
 									{currency.label}
 								</SelectItem>

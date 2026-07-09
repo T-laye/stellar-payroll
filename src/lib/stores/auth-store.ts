@@ -66,17 +66,46 @@ function isUserRole(value: unknown): value is UserRole {
 	);
 }
 
-function toRoleName(value?: string | null) {
+function normalizeRoleSlug(value?: string | null) {
 	if (!value) {
+		return null;
+	}
+
+	const normalized = value.trim().toLowerCase();
+
+	if (normalized === "hr-manager" || normalized === "hr manager") {
+		return "hr-manager";
+	}
+
+	if (
+		normalized === "owner" ||
+		normalized === "admin" ||
+		normalized === "viewer"
+	) {
+		return normalized;
+	}
+
+	return normalized;
+}
+
+function toRoleName(value?: string | null, fallbackRole?: string | null) {
+	const rawValue = value?.trim() || fallbackRole?.trim();
+
+	if (!rawValue) {
 		return "Admin";
 	}
 
-	return value
-		.replace(/-/g, " ")
+	const normalizedValue = rawValue.replace(/_/g, " ").replace(/-/g, " ");
+	const parts = normalizedValue
 		.split(" ")
 		.filter(Boolean)
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(" ");
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+
+	if (parts.length === 0) {
+		return "Admin";
+	}
+
+	return parts.join(" ");
 }
 
 function decodeJwtPayload(token?: string | null) {
@@ -138,10 +167,11 @@ function buildUser(response: AuthResponse, seed: AuthSeed): User {
 	const accessToken =
 		responseData?.session?.access_token ?? response.token ?? null;
 	const claims = decodeJwtPayload(accessToken);
-	const roleSlug =
-		(isUserRole(responseUser?.role_slug) && responseUser.role_slug) ||
-		seed.role_slug ||
-		null;
+	const roleSlug = normalizeRoleSlug(
+		(isUserRole(responseUser?.role_slug) && responseUser?.role_slug) ||
+			seed.role_slug ||
+			null,
+	);
 
 	return {
 		id:
@@ -151,12 +181,13 @@ function buildUser(response: AuthResponse, seed: AuthSeed): User {
 		first_name: getFallbackFirstName(seed, responseUser),
 		last_name: getFallbackLastName(seed, responseUser),
 		permissions: getClaimsPermissions(claims),
-		role_name: toRoleName(responseUser?.role_name ?? roleSlug),
+		role_name: toRoleName(responseUser?.role_name, roleSlug),
 		company:
 			responseUser?.company_name ||
 			seed.company_name ||
 			responseData?.company_slug ||
 			seed.company_slug,
+		company_id: responseUser?.company_id || responseData?.company_id,
 	};
 }
 
@@ -170,7 +201,7 @@ function mapCurrentUserToStoreUser(
 		first_name: currentUser.first_name,
 		last_name: currentUser.last_name,
 		permissions: existingUser?.permissions ?? [],
-		role_name: currentUser.role_name,
+		role_name: toRoleName(currentUser.role_name, existingUser?.role_name),
 		role_id: currentUser.role_id,
 		company: existingUser?.company,
 		company_id: currentUser.company_id,

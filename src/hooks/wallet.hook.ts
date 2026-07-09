@@ -87,7 +87,7 @@ export function useCompanyWallets(companyId?: string) {
 
 	useEffect(() => {
 		if (query.data?.data) {
-			setWallets(query.data.data);
+			setWallets(query.data.data.data);
 		}
 	}, [query.data, setWallets]);
 
@@ -108,8 +108,8 @@ export function useCompanyWalletDetails(walletId?: string, companyId?: string) {
 
 	useEffect(() => {
 		if (query.data?.data) {
-			setSelectedWallet(query.data.data);
-			upsertWallet(query.data.data);
+			setSelectedWallet(query.data.data.data);
+			upsertWallet(query.data.data.data);
 		}
 	}, [query.data, setSelectedWallet, upsertWallet]);
 
@@ -127,8 +127,8 @@ export function useCreateCompanyWallet(companyId?: string) {
 		mutationFn: (payload: CreateCompanyWalletPayload) =>
 			createCompanyWallet(requireCompanyId(resolvedCompanyId), payload),
 		onSuccess: (response) => {
-			upsertWallet(response.data);
-			setSelectedWallet(response.data);
+			upsertWallet(response.data.data);
+			setSelectedWallet(response.data.data);
 			queryClient.invalidateQueries({
 				queryKey: ["wallets", "list", resolvedCompanyId],
 			});
@@ -136,7 +136,7 @@ export function useCreateCompanyWallet(companyId?: string) {
 				queryKey: ["wallets", "stats", resolvedCompanyId],
 			});
 			queryClient.setQueryData(
-				["wallets", "detail", resolvedCompanyId, response.data.id],
+				["wallets", "detail", resolvedCompanyId, response.data.data.id],
 				response,
 			);
 		},
@@ -164,8 +164,8 @@ export function useAddCompanyWalletTrustline(companyId?: string) {
 				payload,
 			),
 		onSuccess: (response) => {
-			setSelectedWallet(response.data);
-			upsertWallet(response.data);
+			setSelectedWallet(response.data.data);
+			upsertWallet(response.data.data);
 			queryClient.invalidateQueries({
 				queryKey: ["wallets", "list", resolvedCompanyId],
 			});
@@ -173,7 +173,7 @@ export function useAddCompanyWalletTrustline(companyId?: string) {
 				queryKey: ["wallets", "stats", resolvedCompanyId],
 			});
 			queryClient.setQueryData(
-				["wallets", "detail", resolvedCompanyId, response.data.id],
+				["wallets", "detail", resolvedCompanyId, response.data.data.id],
 				response,
 			);
 		},
@@ -194,7 +194,7 @@ export function useMyWalletDetails(enabled = true) {
 
 	useEffect(() => {
 		if (query.data?.data) {
-			setMyWallet(query.data.data);
+			setMyWallet(query.data.data.data);
 		}
 	}, [query.data, setMyWallet]);
 
@@ -255,7 +255,7 @@ export function useMyWalletPrivateKey(enabled = false) {
 
 	useEffect(() => {
 		if (query.data?.data) {
-			setMyPrivateKey(extractWalletPrivateKey(query.data.data));
+			setMyPrivateKey(extractWalletPrivateKey(query.data.data.data));
 		}
 	}, [query.data, setMyPrivateKey]);
 

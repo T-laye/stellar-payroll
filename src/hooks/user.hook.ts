@@ -9,7 +9,7 @@ import {
 	type UpdateCurrentUserPayload,
 } from "@/services/user.service";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { ApiError } from "@/lib/api/client";
+import { ApiError } from "@/config/axios";
 
 function syncUserProfile(user: CurrentUserData) {
 	useAuthStore.getState().setUserProfile(user);

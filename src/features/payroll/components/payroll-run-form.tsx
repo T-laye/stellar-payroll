@@ -10,6 +10,7 @@ import {
 	useUpdatePayrollRun,
 } from "@/hooks/payroll.hook";
 import { type PayrollGroup, type PayrollRun } from "@/services/payroll.service";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,6 +26,17 @@ interface PayrollRunFormProps {
 	groups: PayrollGroup[];
 	run?: PayrollRun;
 	onSuccess?: () => void;
+}
+
+const payrollCurrencies = [
+	{ label: "USDC", value: "USDC" },
+	{ label: "Stellar Lumens (XLM)", value: "XLM" },
+] as const;
+
+function getSupportedCurrency(
+	currency?: string,
+): PayrollRunFormData["currency"] {
+	return currency === "USDC" || currency === "XLM" ? currency : "USDC";
 }
 
 function toLocalDateTimeValue(value?: string | null) {
@@ -55,7 +67,7 @@ export function PayrollRunForm({ groups, run, onSuccess }: PayrollRunFormProps) 
 	const defaultValues = useMemo(
 		() => ({
 			group_id: run?.group_id ?? groups[0]?.id ?? "",
-			currency: run?.currency ?? company?.default_currency ?? "USDC",
+			currency: getSupportedCurrency(run?.currency ?? company?.default_currency),
 			notes: run?.notes ?? "",
 			period_start: run?.period_start ? run.period_start.split("T")[0] : "",
 			period_end: run?.period_end ? run.period_end.split("T")[0] : "",
@@ -79,23 +91,29 @@ export function PayrollRunForm({ groups, run, onSuccess }: PayrollRunFormProps) 
 	const onSubmit = async (data: PayrollRunFormData) => {
 		const payload = {
 			group_id: data.group_id,
-			currency: data.currency.trim().toUpperCase(),
+			currency: data.currency,
 			notes: data.notes?.trim() || "",
 			period_start: data.period_start,
 			period_end: data.period_end,
 			scheduled_at: new Date(data.scheduled_at).toISOString(),
 		};
 
-		if (run) {
-			await updateRun({
-				notes: payload.notes,
-				scheduled_at: payload.scheduled_at,
-			});
-		} else {
-			await createRun(payload);
-		}
+		try {
+			if (run) {
+				await updateRun({
+					notes: payload.notes,
+					scheduled_at: payload.scheduled_at,
+				});
+			} else {
+				await createRun(payload);
+			}
 
-		onSuccess?.();
+			onSuccess?.();
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to save payroll run.",
+			);
+		}
 	};
 
 	return (
@@ -166,11 +184,27 @@ export function PayrollRunForm({ groups, run, onSuccess }: PayrollRunFormProps) 
 					<label className="text-sm font-medium text-foreground">
 						Currency
 					</label>
-					<Input
-						{...register("currency")}
-						maxLength={6}
+					<Select
+						defaultValue={defaultValues.currency}
+						onValueChange={(value) =>
+							setValue("currency", value as PayrollRunFormData["currency"], {
+								shouldDirty: true,
+								shouldValidate: true,
+							})
+						}
 						disabled={Boolean(run)}
-					/>
+					>
+						<SelectTrigger>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{payrollCurrencies.map((currency) => (
+								<SelectItem key={currency.value} value={currency.value}>
+									{currency.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 					{errors.currency && (
 						<p className="text-xs text-red-500">{errors.currency.message}</p>
 					)}

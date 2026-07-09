@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api/client";
+import { axiosInstance } from "@/config/axios";
 import { getStoredAuthHeaders } from "@/lib/auth/session";
 
 export const COMPANY_ENDPOINTS = {
@@ -42,17 +42,22 @@ function getAuthOptions() {
 	};
 }
 
-export function getCompany(companyId: string) {
-	return apiClient.get<CompanyResponse>(
+export async function getCompany(companyId: string) {
+	const response = await axiosInstance.get<CompanyResponse>(
 		COMPANY_ENDPOINTS.detail(companyId),
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function updateCompany(companyId: string, payload: UpdateCompanyPayload) {
-	return apiClient.patch<CompanyResponse>(
+export async function updateCompany(
+	companyId: string,
+	payload: UpdateCompanyPayload,
+) {
+	const response = await axiosInstance.patch<CompanyResponse>(
 		COMPANY_ENDPOINTS.detail(companyId),
 		payload,
 		getAuthOptions(),
 	);
+	return response.data;
 }

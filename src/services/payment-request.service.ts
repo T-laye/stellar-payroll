@@ -1,19 +1,16 @@
-import { apiClient } from "@/lib/api/client";
+import { axiosInstance } from "@/config/axios";
 import { getStoredAuthHeaders } from "@/lib/auth/session";
 
 export const PAYMENT_REQUEST_ENDPOINTS = {
-	companyList: (companyId: string) => `/companies/${companyId}/payment-requests`,
+	companyList: (companyId: string) =>
+		`/companies/${companyId}/payment-requests`,
 	companyReview: (companyId: string, requestId: string) =>
 		`/companies/${companyId}/payment-requests/${requestId}`,
 	myList: "/users/me/payment-requests",
 	myCreate: "/users/me/payment-requests",
 } as const;
 
-export type PaymentRequestStatus =
-	| "PENDING"
-	| "APPROVED"
-	| "REJECTED"
-	| "PAID";
+export type PaymentRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "PAID";
 
 export interface PaymentRequest {
 	amount: string;
@@ -58,15 +55,15 @@ function getAuthOptions() {
 	};
 }
 
-export function getCompanyPaymentRequests(
+export async function getCompanyPaymentRequests(
 	companyId: string,
 	status?: PaymentRequestStatus | "all",
 ) {
-	return apiClient.get<PaymentRequestListResponse>(
+	const response = await axiosInstance.get<PaymentRequestListResponse>(
 		PAYMENT_REQUEST_ENDPOINTS.companyList(companyId),
 		{
 			...getAuthOptions(),
-			query:
+			params:
 				status && status !== "all"
 					? {
 							status,
@@ -74,31 +71,37 @@ export function getCompanyPaymentRequests(
 					: undefined,
 		},
 	);
+	return response.data;
 }
 
-export function reviewCompanyPaymentRequest(
+export async function reviewCompanyPaymentRequest(
 	companyId: string,
 	requestId: string,
 	payload: ReviewPaymentRequestPayload,
 ) {
-	return apiClient.patch<PaymentRequestResponse>(
+	const response = await axiosInstance.patch<PaymentRequestResponse>(
 		PAYMENT_REQUEST_ENDPOINTS.companyReview(companyId, requestId),
 		payload,
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function getMyPaymentRequests() {
-	return apiClient.get<PaymentRequestListResponse>(
+export async function getMyPaymentRequests() {
+	const response = await axiosInstance.get<PaymentRequestListResponse>(
 		PAYMENT_REQUEST_ENDPOINTS.myList,
 		getAuthOptions(),
 	);
+	return response.data;
 }
 
-export function createMyPaymentRequest(payload: CreatePaymentRequestPayload) {
-	return apiClient.post<PaymentRequestResponse>(
+export async function createMyPaymentRequest(
+	payload: CreatePaymentRequestPayload,
+) {
+	const response = await axiosInstance.post<PaymentRequestResponse>(
 		PAYMENT_REQUEST_ENDPOINTS.myCreate,
 		payload,
 		getAuthOptions(),
 	);
+	return response.data;
 }
