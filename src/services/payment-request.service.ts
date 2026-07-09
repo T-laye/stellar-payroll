@@ -1,4 +1,5 @@
-import { axiosInstance } from "@/config/axios";
+import axios from "axios";
+import { ApiError, axiosInstance } from "@/config/axios";
 import { getStoredAuthHeaders } from "@/lib/auth/session";
 
 export const PAYMENT_REQUEST_ENDPOINTS = {
@@ -38,9 +39,11 @@ export interface PaymentRequestResponse {
 	statusCode: number;
 }
 
+export type PaymentRequestCurrency = "USDC" | "XLM";
+
 export interface CreatePaymentRequestPayload extends Record<string, unknown> {
 	amount: string;
-	currency: string;
+	currency: PaymentRequestCurrency;
 	note: string;
 }
 
@@ -53,6 +56,46 @@ function getAuthOptions() {
 	return {
 		headers: getStoredAuthHeaders(),
 	};
+}
+
+function getErrorMessage(data: unknown, fallback: string) {
+	if (!data || typeof data !== "object") {
+		return fallback;
+	}
+
+	const errorData = data as Record<string, unknown>;
+	const message = errorData.message;
+	const error = errorData.error;
+
+	if (typeof message === "string" && message.trim()) {
+		return message;
+	}
+
+	if (Array.isArray(message) && message.length > 0) {
+		return message.filter(Boolean).join(", ");
+	}
+
+	if (typeof error === "string" && error.trim()) {
+		return error;
+	}
+
+	return fallback;
+}
+
+function normalizePaymentRequestError(error: unknown): never {
+	if (axios.isAxiosError(error)) {
+		throw new ApiError(
+			getErrorMessage(error.response?.data, error.message || "Request failed"),
+			error.response?.status ?? 500,
+			error.response?.data,
+		);
+	}
+
+	if (error instanceof Error) {
+		throw new ApiError(error.message, 500, error);
+	}
+
+	throw new ApiError("Request failed", 500, error);
 }
 
 export async function getCompanyPaymentRequests(
@@ -79,12 +122,16 @@ export async function reviewCompanyPaymentRequest(
 	requestId: string,
 	payload: ReviewPaymentRequestPayload,
 ) {
-	const response = await axiosInstance.patch<PaymentRequestResponse>(
-		PAYMENT_REQUEST_ENDPOINTS.companyReview(companyId, requestId),
-		payload,
-		getAuthOptions(),
-	);
-	return response.data;
+	try {
+		const response = await axiosInstance.patch<PaymentRequestResponse>(
+			PAYMENT_REQUEST_ENDPOINTS.companyReview(companyId, requestId),
+			payload,
+			getAuthOptions(),
+		);
+		return response.data;
+	} catch (error) {
+		normalizePaymentRequestError(error);
+	}
 }
 
 export async function getMyPaymentRequests() {
@@ -98,10 +145,14 @@ export async function getMyPaymentRequests() {
 export async function createMyPaymentRequest(
 	payload: CreatePaymentRequestPayload,
 ) {
-	const response = await axiosInstance.post<PaymentRequestResponse>(
-		PAYMENT_REQUEST_ENDPOINTS.myCreate,
-		payload,
-		getAuthOptions(),
-	);
-	return response.data;
+	try {
+		const response = await axiosInstance.post<PaymentRequestResponse>(
+			PAYMENT_REQUEST_ENDPOINTS.myCreate,
+			payload,
+			getAuthOptions(),
+		);
+		return response.data;
+	} catch (error) {
+		normalizePaymentRequestError(error);
+	}
 }

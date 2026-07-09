@@ -32,8 +32,16 @@ import {
 } from "@/hooks/payment-request.hook";
 import { useMyStats } from "@/hooks/stats.hook";
 import { usePaymentRequestStore } from "@/lib/stores/payment-request-store";
-import { currencies } from "@/lib/utils/constants";
 import { formatStatDate, formatStatLabel, formatStatNumber } from "@/lib/utils/stats";
+import { type PaymentRequestCurrency } from "@/services/payment-request.service";
+
+const paymentRequestCurrencies: Array<{
+	label: string;
+	value: PaymentRequestCurrency;
+}> = [
+	{ label: "USDC", value: "USDC" },
+	{ label: "Stellar Lumens (XLM)", value: "XLM" },
+];
 
 export function MyPaymentRequestsManager() {
 	const requests = usePaymentRequestStore((state) => state.myRequests);
@@ -45,7 +53,7 @@ export function MyPaymentRequestsManager() {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [form, setForm] = useState({
 		amount: "",
-		currency: "USDC",
+		currency: "USDC" as PaymentRequestCurrency,
 		note: "",
 	});
 
@@ -64,10 +72,16 @@ export function MyPaymentRequestsManager() {
 			return;
 		}
 
+		const amount = Number(form.amount);
+		if (!Number.isFinite(amount) || amount <= 0) {
+			toast.error("Amount must be a positive number.");
+			return;
+		}
+
 		try {
 			await createRequest({
 				amount: form.amount.trim(),
-				currency: form.currency.trim().toUpperCase(),
+				currency: form.currency,
 				note: form.note.trim(),
 			});
 			toast.success("Payment request submitted", {
@@ -140,7 +154,7 @@ export function MyPaymentRequestsManager() {
 										onValueChange={(value) =>
 											setForm((current) => ({
 												...current,
-												currency: value,
+												currency: value as PaymentRequestCurrency,
 											}))
 										}
 									>
@@ -148,7 +162,7 @@ export function MyPaymentRequestsManager() {
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
-											{currencies.map((currency) => (
+											{paymentRequestCurrencies.map((currency) => (
 												<SelectItem key={currency.value} value={currency.value}>
 													{currency.label}
 												</SelectItem>

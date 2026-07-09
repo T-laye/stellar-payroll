@@ -1,4 +1,5 @@
-import { axiosInstance } from "@/config/axios";
+import axios from "axios";
+import { ApiError, axiosInstance } from "@/config/axios";
 import { getStoredAuthHeaders } from "@/lib/auth/session";
 import {
 	getWalletStats,
@@ -83,9 +84,9 @@ export interface GenericWalletResponse<T = Record<string, unknown>> {
 }
 
 export interface CreateCompanyWalletPayload extends Record<string, unknown> {
-	secret_key: string;
-	stellar_address: string;
-	wallet_type: string;
+	secret_key?: string;
+	stellar_address?: string;
+	wallet_type: "OPERATIONAL" | "ESCROW" | "EXTERNAL";
 }
 
 export interface AddWalletTrustlinePayload extends Record<string, unknown> {
@@ -115,6 +116,46 @@ function getAuthOptions() {
 	};
 }
 
+function getErrorMessage(data: unknown, fallback: string) {
+	if (!data || typeof data !== "object") {
+		return fallback;
+	}
+
+	const errorData = data as Record<string, unknown>;
+	const message = errorData.message;
+	const error = errorData.error;
+
+	if (typeof message === "string" && message.trim()) {
+		return message;
+	}
+
+	if (Array.isArray(message) && message.length > 0) {
+		return message.filter(Boolean).join(", ");
+	}
+
+	if (typeof error === "string" && error.trim()) {
+		return error;
+	}
+
+	return fallback;
+}
+
+function normalizeWalletError(error: unknown): never {
+	if (axios.isAxiosError(error)) {
+		throw new ApiError(
+			getErrorMessage(error.response?.data, error.message || "Request failed"),
+			error.response?.status ?? 500,
+			error.response?.data,
+		);
+	}
+
+	if (error instanceof Error) {
+		throw new ApiError(error.message, 500, error);
+	}
+
+	throw new ApiError("Request failed", 500, error);
+}
+
 export function getCompanyWalletStats(companyId: string) {
 	return getWalletStats(companyId);
 }
@@ -126,15 +167,19 @@ export function getCompanyWallets(companyId: string) {
 	);
 }
 
-export function createCompanyWallet(
+export async function createCompanyWallet(
 	companyId: string,
 	payload: CreateCompanyWalletPayload,
 ) {
-	return axiosInstance.post<CompanyWalletResponse>(
-		COMPANY_WALLET_ENDPOINTS.list(companyId),
-		payload,
-		getAuthOptions(),
-	);
+	try {
+		return await axiosInstance.post<CompanyWalletResponse>(
+			COMPANY_WALLET_ENDPOINTS.list(companyId),
+			payload,
+			getAuthOptions(),
+		);
+	} catch (error) {
+		normalizeWalletError(error);
+	}
 }
 
 export function getCompanyWallet(companyId: string, walletId: string) {
@@ -144,16 +189,20 @@ export function getCompanyWallet(companyId: string, walletId: string) {
 	);
 }
 
-export function addCompanyWalletTrustline(
+export async function addCompanyWalletTrustline(
 	companyId: string,
 	walletId: string,
 	payload: AddWalletTrustlinePayload,
 ) {
-	return axiosInstance.post<CompanyWalletResponse>(
-		COMPANY_WALLET_ENDPOINTS.trustlines(companyId, walletId),
-		payload,
-		getAuthOptions(),
-	);
+	try {
+		return await axiosInstance.post<CompanyWalletResponse>(
+			COMPANY_WALLET_ENDPOINTS.trustlines(companyId, walletId),
+			payload,
+			getAuthOptions(),
+		);
+	} catch (error) {
+		normalizeWalletError(error);
+	}
 }
 
 export function getMyWallet() {

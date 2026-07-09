@@ -25,6 +25,13 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { useCompanyWallet } from "@/hooks/wallet.hook";
 import {
 	useAddCompanyWalletTrustline,
@@ -49,6 +56,11 @@ function maskAddress(value: string) {
 	return `${value.slice(0, 6)}...${value.slice(-6)}`;
 }
 
+const STELLAR_PUBLIC_KEY_PATTERN = /^G[A-Z2-7]{55}$/;
+const STELLAR_SECRET_KEY_PATTERN = /^S[A-Z2-7]{55}$/;
+const supportedCompanyWalletTypes = ["OPERATIONAL", "ESCROW", "EXTERNAL"] as const;
+type CompanyWalletType = (typeof supportedCompanyWalletTypes)[number];
+
 export function CompanyWalletsManager() {
 	const companyId = useAuthStore((state) => state.user?.company_id);
 	const wallets = useWalletStore((state) => state.wallets);
@@ -70,7 +82,7 @@ export function CompanyWalletsManager() {
 	const [createForm, setCreateForm] = useState({
 		stellar_address: "",
 		secret_key: "",
-		wallet_type: "OPERATIONAL",
+		wallet_type: "OPERATIONAL" as CompanyWalletType,
 	});
 	const [trustlineForm, setTrustlineForm] = useState({
 		asset_code: "",
@@ -86,11 +98,9 @@ export function CompanyWalletsManager() {
 	const totalWallets = useMemo(() => wallets.length, [wallets]);
 	const fundedWallets = walletStats?.funded_wallets ?? 0;
 	const unfundedWallets = walletStats?.unfunded_wallets ?? 0;
-	const companyWalletTypes = Object.entries(
+	const companyWalletTypeStats = Object.entries(
 		walletStats?.company_wallets_by_type ?? {},
 	);
-
-	console.log(wallets, 'wallet stuff');
 
 	if (!companyId) {
 		return (
@@ -119,20 +129,30 @@ export function CompanyWalletsManager() {
 	};
 
 	const handleCreateWallet = async () => {
-		if (
-			!createForm.stellar_address.trim() ||
-			!createForm.secret_key.trim() ||
-			!createForm.wallet_type.trim()
-		) {
-			toast.error("All wallet fields are required.");
+		const walletType = createForm.wallet_type;
+		const stellarAddress = createForm.stellar_address.trim();
+		const secretKey = createForm.secret_key.trim();
+
+		if (walletType === "EXTERNAL" && !stellarAddress) {
+			toast.error("External wallets require a Stellar address.");
+			return;
+		}
+
+		if (stellarAddress && !STELLAR_PUBLIC_KEY_PATTERN.test(stellarAddress)) {
+			toast.error("Enter a valid Stellar public key starting with G.");
+			return;
+		}
+
+		if (secretKey && !STELLAR_SECRET_KEY_PATTERN.test(secretKey)) {
+			toast.error("Enter a valid Stellar secret key starting with S.");
 			return;
 		}
 
 		try {
 			await createCompanyWallet({
-				stellar_address: createForm.stellar_address.trim(),
-				secret_key: createForm.secret_key.trim(),
-				wallet_type: createForm.wallet_type.trim().toUpperCase(),
+				wallet_type: walletType,
+				...(stellarAddress ? { stellar_address: stellarAddress } : {}),
+				...(secretKey ? { secret_key: secretKey } : {}),
 			});
 			toast.success("Company wallet created successfully.");
 			setCreateDialogOpen(false);
@@ -158,6 +178,11 @@ export function CompanyWalletsManager() {
 			!trustlineForm.asset_issuer.trim()
 		) {
 			toast.error("Asset code and issuer are required.");
+			return;
+		}
+
+		if (!STELLAR_PUBLIC_KEY_PATTERN.test(trustlineForm.asset_issuer.trim())) {
+			toast.error("Enter a valid Stellar issuer public key starting with G.");
 			return;
 		}
 
@@ -217,7 +242,7 @@ export function CompanyWalletsManager() {
 						{
 							label: "Wallet Types",
 							value: formatStatNumber(
-								companyWalletTypes.length || (totalWallets ? 1 : 0),
+								companyWalletTypeStats.length || (totalWallets ? 1 : 0),
 							),
 							icon: ShieldCheck,
 						},
@@ -244,9 +269,9 @@ export function CompanyWalletsManager() {
 					})}
 				</div>
 
-				{companyWalletTypes.length > 0 && (
+				{companyWalletTypeStats.length > 0 && (
 					<div className="flex flex-wrap gap-2">
-						{companyWalletTypes.map(([walletType, count]) => (
+						{companyWalletTypeStats.map(([walletType, count]) => (
 							<Badge key={walletType} variant="outline">
 								{walletType}: {formatStatNumber(count)}
 							</Badge>
@@ -434,16 +459,26 @@ export function CompanyWalletsManager() {
 							<label className="text-sm font-medium text-foreground">
 								Wallet Type
 							</label>
-							<Input
+							<Select
 								value={createForm.wallet_type}
-								onChange={(event) =>
+								onValueChange={(value) =>
 									setCreateForm((current) => ({
 										...current,
-										wallet_type: event.target.value.toUpperCase(),
+										wallet_type: value as CompanyWalletType,
 									}))
 								}
-								placeholder="OPERATIONAL"
-							/>
+							>
+								<SelectTrigger>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{supportedCompanyWalletTypes.map((walletType) => (
+										<SelectItem key={walletType} value={walletType}>
+											{walletType}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 
 						<div className="space-y-1.5">
@@ -458,7 +493,11 @@ export function CompanyWalletsManager() {
 										stellar_address: event.target.value,
 									}))
 								}
-								placeholder="G..."
+								placeholder={
+									createForm.wallet_type === "EXTERNAL"
+										? "Required for external wallets"
+										: "Optional existing public key"
+								}
 							/>
 						</div>
 
@@ -475,7 +514,7 @@ export function CompanyWalletsManager() {
 										secret_key: event.target.value,
 									}))
 								}
-								placeholder="S..."
+								placeholder="Optional import secret key"
 							/>
 						</div>
 					</div>

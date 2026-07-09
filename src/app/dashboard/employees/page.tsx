@@ -58,6 +58,8 @@ import {
 import { toast } from "sonner";
 import { hasAnyPermission, useAuthStore } from "@/lib/stores/auth-store";
 
+const STELLAR_PUBLIC_KEY_PATTERN = /^G[A-Z2-7]{55}$/;
+
 export default function EmployeesPage() {
 	const user = useAuthStore((state) => state.user);
 	const canViewEmployees = hasAnyPermission(user, ["*", "employees:read"]);
@@ -181,15 +183,24 @@ export default function EmployeesPage() {
 			return;
 		}
 
+		const trimmedWalletAddress = walletAddress.trim();
+		if (
+			trimmedWalletAddress &&
+			!STELLAR_PUBLIC_KEY_PATTERN.test(trimmedWalletAddress)
+		) {
+			toast.error("Enter a valid Stellar public key starting with G.");
+			return;
+		}
+
 		try {
 			await linkEmployeeWallet({
 				employeeId: detailsEmployeeId,
-				payload: walletAddress.trim()
-					? { stellar_address: walletAddress.trim() }
+				payload: trimmedWalletAddress
+					? { stellar_address: trimmedWalletAddress }
 					: {},
 			});
 			toast.success(
-				walletAddress.trim()
+				trimmedWalletAddress
 					? "Employee wallet linked"
 					: "Employee wallet generated",
 			);

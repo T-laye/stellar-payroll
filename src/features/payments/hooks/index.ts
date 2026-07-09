@@ -19,6 +19,7 @@ export type PaymentRequestStatus =
 	| "APPROVED"
 	| "REJECTED"
 	| "PAID";
+export type PaymentRequestCurrency = "USDC" | "XLM";
 
 export interface PaymentRequest {
 	amount: string;
@@ -48,7 +49,7 @@ export interface PaymentRequestResponse {
 
 export interface CreatePaymentRequestPayload extends Record<string, unknown> {
 	amount: string;
-	currency: string;
+	currency: PaymentRequestCurrency;
 	note: string;
 }
 

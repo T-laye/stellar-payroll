@@ -57,6 +57,14 @@ function toLocalDateTimeValue(value?: string | null) {
 	return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+function toIsoDateStart(value: string) {
+	return new Date(`${value}T00:00:00`).toISOString();
+}
+
+function toIsoDateEnd(value: string) {
+	return new Date(`${value}T23:59:59`).toISOString();
+}
+
 export function PayrollRunForm({ groups, run, onSuccess }: PayrollRunFormProps) {
 	const company = useCompanyStore((state) => state.company);
 	const { mutateAsync: createRun, isPending: isCreating } = useCreatePayrollRun();
@@ -93,8 +101,8 @@ export function PayrollRunForm({ groups, run, onSuccess }: PayrollRunFormProps) 
 			group_id: data.group_id,
 			currency: data.currency,
 			notes: data.notes?.trim() || "",
-			period_start: data.period_start,
-			period_end: data.period_end,
+			period_start: toIsoDateStart(data.period_start),
+			period_end: toIsoDateEnd(data.period_end),
 			scheduled_at: new Date(data.scheduled_at).toISOString(),
 		};
 

@@ -243,12 +243,16 @@ export async function linkEmployeeWallet(
 	employeeId: string,
 	payload: LinkEmployeeWalletPayload,
 ) {
-	const response = await axiosInstance.post<GenericEmployeeResponse>(
-		EMPLOYEE_ENDPOINTS.linkWallet(companyId, employeeId),
-		payload,
-		getAuthOptions(),
-	);
-	return response.data;
+	try {
+		const response = await axiosInstance.post<GenericEmployeeResponse>(
+			EMPLOYEE_ENDPOINTS.linkWallet(companyId, employeeId),
+			payload,
+			getAuthOptions(),
+		);
+		return response.data;
+	} catch (error) {
+		normalizeEmployeeError(error);
+	}
 }
 
 export async function getEmployeeWallet(employeeId: string) {
