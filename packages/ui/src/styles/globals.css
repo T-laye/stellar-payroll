@@ -1,0 +1,322 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ---------------------------------------------------------------------- */
+/* PayOrbit design tokens, shared by every app (landing, web).             */
+/* Brand from getpayorbit.com: purple #5501FF, cyan #00FFBB, magenta       */
+/* #FF00A6, ink #1F1F1F, and the deep night #0D0020 behind the sidebar and */
+/* the sign-in panel. Semantic shadcn tokens below; status colours         */
+/* (success, warning, info) for payment states. Font: Inter (set by each   */
+/* app's layout as --font-inter), Satoshi as the fallback.                 */
+/* ---------------------------------------------------------------------- */
+
+@custom-variant dark (&:is(.dark *));
+
+@font-face {
+  font-family: "Satoshi-Variable";
+  src:
+    url("../assets/fonts/Satoshi-Variable.woff2") format("woff2"),
+    url("../assets/fonts/Satoshi-Variable.woff") format("woff"),
+    url("../assets/fonts/Satoshi-Variable.ttf") format("truetype");
+  font-weight: 300 900;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Satoshi-VariableItalic";
+  src:
+    url("../assets/fonts/Satoshi-VariableItalic.woff2") format("woff2"),
+    url("../assets/fonts/Satoshi-VariableItalic.woff") format("woff"),
+    url("../assets/fonts/Satoshi-VariableItalic.ttf") format("truetype");
+  font-weight: 300 900;
+  font-display: swap;
+  font-style: italic;
+}
+
+:root {
+	/* Brand */
+	--brand-purple: #5501ff;
+	--brand-purple-mid: #4600d2;
+	--brand-purple-deep: #3e02b7;
+	--brand-cyan: #00ffbb;
+	--brand-magenta: #ff00a6;
+	--brand-blue: #00bfff;
+	--brand-night: #0d0020;
+
+	--background: #f6f6fa;
+	--foreground: #1f1f1f;
+	--card: #ffffff;
+	--card-foreground: #1f1f1f;
+	--popover: #ffffff;
+	--popover-foreground: #1f1f1f;
+	--primary: #5501ff;
+	--primary-foreground: #ffffff;
+	--secondary: #f3f3f6;
+	--secondary-foreground: #1f1f1f;
+	--muted: #f3f3f6;
+	--muted-foreground: #6b7280;
+	/* Hover and selection tint (the brand cyan is reserved for highlights). */
+	--accent: #f1ecff;
+	--accent-foreground: #3e02b7;
+	--destructive: #e5383b;
+	--destructive-foreground: #ffffff;
+	--success: #12a150;
+	--success-foreground: #ffffff;
+	--warning: #e08a00;
+	--warning-foreground: #ffffff;
+	--info: #0a8fd6;
+	--info-foreground: #ffffff;
+	--border: #e7e7ef;
+	--input: #e2e2ea;
+	--ring: #5501ff;
+	--chart-1: #5501ff;
+	--chart-2: #00d69e;
+	--chart-3: #ff00a6;
+	--chart-4: #00bfff;
+	--chart-5: #4600d2;
+	--radius: 0.625rem;
+	--sidebar: #0d0020;
+	--sidebar-foreground: #bdb6d9;
+	--sidebar-primary: #5501ff;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #1b1135;
+	--sidebar-accent-foreground: #ffffff;
+	--sidebar-border: #221844;
+	--sidebar-ring: #7c3aff;
+}
+
+.dark {
+	--background: #141414;
+	--foreground: #f3f3f3;
+	--card: #1f1f1f;
+	--card-foreground: #f3f3f3;
+	--popover: #222222;
+	--popover-foreground: #f3f3f3;
+	--primary: #7c3aff;
+	--primary-foreground: #ffffff;
+	--secondary: #2a2a2a;
+	--secondary-foreground: #f3f3f3;
+	--muted: #2a2a2a;
+	--muted-foreground: #9ca3af;
+	--accent: #2a1f4a;
+	--accent-foreground: #e4dbff;
+	--destructive: #f05252;
+	--destructive-foreground: #ffffff;
+	--success: #2fbf71;
+	--success-foreground: #0b2416;
+	--warning: #f5a524;
+	--warning-foreground: #2b1a00;
+	--info: #38b6f5;
+	--info-foreground: #04202f;
+	--border: #333333;
+	--input: #3a3a3a;
+	--ring: #7c3aff;
+	--chart-1: #7c3aff;
+	--chart-2: #00ffbb;
+	--chart-3: #ff00a6;
+	--chart-4: #00bfff;
+	--chart-5: #5501ff;
+	--sidebar: #0a0018;
+	--sidebar-foreground: #bdb6d9;
+	--sidebar-primary: #7c3aff;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #1b1135;
+	--sidebar-accent-foreground: #ffffff;
+	--sidebar-border: #221844;
+	--sidebar-ring: #7c3aff;
+}
+
+@theme inline {
+	--font-sans: var(--font-inter), "Satoshi-Variable", ui-sans-serif, system-ui, sans-serif;
+	--color-brand-purple: var(--brand-purple);
+	--color-brand-purple-mid: var(--brand-purple-mid);
+	--color-brand-purple-deep: var(--brand-purple-deep);
+	--color-brand-cyan: var(--brand-cyan);
+	--color-brand-magenta: var(--brand-magenta);
+	--color-brand-blue: var(--brand-blue);
+	--color-brand-night: var(--brand-night);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-success: var(--success);
+	--color-success-foreground: var(--success-foreground);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
+	--color-info: var(--info);
+	--color-info-foreground: var(--info-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* The brand gradients from the landing site. */
+@utility bg-brand-gradient {
+	background-image: linear-gradient(135deg, var(--brand-purple), var(--brand-magenta));
+}
+
+@utility bg-brand-gradient-wide {
+	background-image: linear-gradient(135deg, var(--brand-purple), var(--brand-cyan), var(--brand-magenta));
+}
+
+@utility text-brand-gradient {
+	background-image: linear-gradient(135deg, var(--brand-purple), var(--brand-magenta));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+
+html {
+	scroll-behavior: smooth;
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-background font-sans text-foreground;
+		font-feature-settings: "cv11", "ss01";
+	}
+}
+
+/* ---------------------------------------------------------------------- */
+/* Motion. Calm and precise, for a payments product: short distances,     */
+/* soft deceleration, nothing that bounces or loops for show. Loops are    */
+/* kept for "we are waiting on the network" states only. Everything is     */
+/* off for prefers-reduced-motion.                                          */
+/*   .animate-rise   fade + 10px lift; stagger with style={{ "--i": n }}    */
+/*   .animate-page   route enter (the dashboard / admin template.tsx)       */
+/*   .animate-pop    a settled result (payment verified, copied)            */
+/*   .animate-signal soft ring around a live status (awaiting, verifying)   */
+/*   .animate-scan   indeterminate bar while a payment is being verified    */
+/*   .animate-check  draws an SVG check (stroke) once                       */
+/* ---------------------------------------------------------------------- */
+
+@theme {
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes signal {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 35%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 10px color-mix(in oklab, currentColor 0%, transparent);
+  }
+}
+
+@keyframes scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes check {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-rise {
+    animation: rise 0.45s var(--ease-settle) both;
+    animation-delay: calc(var(--i, 0) * 55ms);
+  }
+
+  .animate-page {
+    animation: page-in 0.35s var(--ease-settle) both;
+  }
+
+  .animate-pop {
+    animation: pop 0.3s var(--ease-settle) both;
+  }
+
+  .animate-signal {
+    animation: signal 1.8s ease-out infinite;
+  }
+
+  .animate-scan {
+    animation: scan 1.4s ease-in-out infinite;
+  }
+
+  .animate-check {
+    stroke-dasharray: 24;
+    animation: check 0.45s 0.1s var(--ease-settle) both;
+  }
+
+  /* Radix dialogs, sheets and popovers already enter via tw-animate-css; give them the same curve. */
+  [data-state="open"][data-slot$="content"] {
+    animation-timing-function: var(--ease-settle);
+  }
+}
