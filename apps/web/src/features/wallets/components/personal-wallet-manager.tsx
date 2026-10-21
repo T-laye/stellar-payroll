@@ -240,7 +240,7 @@ export function PersonalWalletManager() {
 					</div>
 
 					<div className="mt-4 flex flex-wrap items-end gap-3">
-						<div className="min-w-[220px] flex-1 space-y-1.5">
+						<div className="min-w-55 flex-1 space-y-1.5">
 							<label className="text-sm font-medium text-foreground">Verify Wallet PIN</label>
 							<Input
 								type="password"

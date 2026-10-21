@@ -19,13 +19,13 @@ export function HeroSection() {
 	return (
 		<section className="relative overflow-hidden">
 			<div className="pointer-events-none absolute inset-0" aria-hidden>
-				<div className="absolute -top-40 left-1/2 h-[560px] w-[900px] -translate-x-1/2 rounded-full bg-brand-purple/12 blur-3xl" />
+				<div className="absolute -top-40 left-1/2 h-140 w-225 -translate-x-1/2 rounded-full bg-brand-purple/12 blur-3xl" />
 				<div className="absolute top-40 -right-32 size-96 rounded-full bg-brand-magenta/10 blur-3xl" />
 				{/* eslint-disable-next-line @next/next/no-img-element */}
 				<img
 					src="/images/map.webp"
 					alt=""
-					className="absolute top-24 left-1/2 w-[1400px] max-w-none -translate-x-1/2 opacity-[0.07] grayscale"
+					className="absolute top-24 left-1/2 w-350 max-w-none -translate-x-1/2 opacity-[0.07] grayscale"
 				/>
 			</div>
 
