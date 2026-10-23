@@ -26,7 +26,13 @@ function session(userId: string) {
 			created_at: iso(Date.now()),
 		});
 		return {
-			session: { access_token: token, pay_token: uuid(), role: role.slug, permissions: role.permissions },
+			session: {
+				access_token: token,
+				pay_token: uuid(),
+				role: role.slug,
+				permissions: role.permissions,
+				is_platform_admin: !!user.is_platform_admin,
+			},
 			company_id: company.id,
 			company_slug: company.slug,
 			redirect_url: `https://${company.slug}.payorbit.com`,
@@ -50,6 +56,7 @@ route("POST", "/auth/login", "public", ({ body }) => {
 	const user = findByEmail(body.email);
 	if (!user || user.password !== body.password) throw new HttpError(401, "invalid email or password");
 	if (!user.is_active) throw new HttpError(401, "this account is not active");
+	if (read().companies.find((c) => c.id === user.company_id)?.is_active === false) throw new HttpError(403, "this company has been suspended");
 	if (!user.email_verified_at) throw new HttpError(403, "please verify your email address before signing in");
 	return ok(session(user.id), "login successful");
 });

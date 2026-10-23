@@ -86,6 +86,7 @@ export function accessToken(db: MockDb, user: MockUser) {
 		company_id: user.company_id,
 		role_id: user.role_id,
 		permissions: effectivePermissions(db, user.id),
+		is_platform_admin: !!user.is_platform_admin,
 		exp: Math.floor(Date.now() / 1000) + 7 * 86_400,
 	};
 	return `${base64url({ alg: "none", typ: "JWT" })}.${base64url(claims)}.mock${hex(16)}`;
@@ -107,6 +108,11 @@ function userFromToken(db: MockDb, authorization: string | undefined) {
 export function need(ctx: Ctx, ...permissions: string[]) {
 	if (ctx.permissions.includes("*") || permissions.some((p) => ctx.permissions.includes(p))) return;
 	throw new HttpError(403, `insufficient permissions: requires ${permissions.join(" or ")}`);
+}
+
+/** Throws 403 unless the signed-in user is a PayOrbit platform admin. */
+export function needPlatformAdmin(ctx: Ctx) {
+	if (!ctx.user?.is_platform_admin) throw new HttpError(403, "platform admin access required");
 }
 
 /** The signed-in user (routes registered as "user" always have one). */
@@ -134,6 +140,10 @@ export async function dispatch(
 	const db = read();
 	const user = userFromToken(db, authorization);
 	if (found.auth !== "public" && !user) throw new HttpError(401, "missing authorization header");
+	// A suspended company's users are rejected on their next request, not just at next login.
+	if (user && found.auth !== "public" && db.companies.find((c) => c.id === user.company_id)?.is_active === false) {
+		throw new HttpError(403, "this company has been suspended");
+	}
 	const permissions = user ? effectivePermissions(db, user.id) : [];
 
 	return found.handler({ method, path, params: match(found, segments)!, query, body, user, permissions });

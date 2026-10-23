@@ -7,3 +7,4 @@ import "./me";
 import "./stats";
 import "./schedules";
 import "./notifications";
+import "./admin";

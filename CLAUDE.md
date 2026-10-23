@@ -15,6 +15,8 @@ Turborepo + pnpm 12 (`packageManager`), Node ≥ 22.
 apps/landing/      (:3002) public marketing site
 apps/web/          (:3000) the app: auth /auth, admin (/overview, /employees, /payroll, /recurring, /transactions,
                    /notifications, /wallets, /requests, /roles, /settings), employee portal (/overview, /payments, /profile)
+apps/admin/        (:3001) platform console for PayOrbit staff (/admin/* endpoints): overview, /companies, /users,
+                   /transactions, /audit-logs, /admins. Sign-in refuses anyone without `is_platform_admin`
 packages/ui/       @repo/ui — design tokens, shadcn components, motion, fonts
 packages/mock-api/ @repo/mock-api — the in-browser demo backend (axios adapter, seed data, payout engine)
 packages/eslint-config, packages/typescript-config
@@ -25,9 +27,9 @@ packages/eslint-config, packages/typescript-config
 
 ## Deployment (Vercel Services)
 
-One Vercel project, two services, routed by path in root `vercel.json`: `/app/*` → `web`, everything else → `landing`.
-On Vercel (`VERCEL_ENV` set) `apps/web/next.config.ts` sets basePath `/app` (`NEXT_PUBLIC_BASE_PATH`); in dev each app has
-its own port and no basePath. Once PayOrbit has a domain, switch to host routing like Stellance (`app.<domain>` → `web`,
+One Vercel project, three services, routed by path in root `vercel.json`: `/app/*` → `web`, `/admin/*` → `admin`,
+everything else → `landing`. On Vercel (`VERCEL_ENV` set) `apps/web/next.config.ts` sets basePath `/app` and
+`apps/admin/next.config.ts` sets `/admin` (`NEXT_PUBLIC_BASE_PATH`); in dev each app has its own port and no basePath. Once PayOrbit has a domain, switch to host routing like Stellance (`app.<domain>` → `web`,
 basePath only on previews) and set `NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_APP_URL` / `NEXT_PUBLIC_LANDING_URL`.
 `site.ts` reads `NEXT_PUBLIC_VERCEL_ENV` (inlined by `next.config.ts` `env`), never `VERCEL_ENV`, so client and server
 renders agree.
@@ -37,7 +39,19 @@ renders agree.
 - Links between apps are plain `<a>` (or `location.assign`): landing → `APP_LINKS`, web → `LANDING_URL`.
 - The app used to live at the site root with the dashboard under `/dashboard`. Landing redirects `/auth/*` and
   `/dashboard/*` into the app, and the app redirects `/dashboard/*` to the new routes, so emailed links keep working.
-- Each host serves its own `robots.txt`: landing allows all; web disallows everything and is `noindex`.
+- Each host serves its own `robots.txt`: landing allows all; web and admin disallow everything and are `noindex`.
+
+### Platform console (`apps/admin`)
+
+- Same data switch and request helpers as web (copied, not shared), its own session (`features/auth/session.ts`,
+  sessionStorage `payorbit-admin-session`). Demo staff account: `admin@payorbit.com` / `Password1` (Ola Adeyemi, the
+  "PayOrbit" company); the mock also seeds a suspended company (`owner@northwind.example`, can't sign in). Live:
+  `tlayefaah@gmail.com` is a platform admin. The mock DB lives per origin, so :3000 and :3001 have separate demo data.
+- `/admin/*` shapes are in `features/admin/types.ts`. Live caps admin pages at 100, the `role` filter takes slugs
+  (`owner`, `hr-manager`), and `GET /admin/transactions` currently answers 500 (detail works); the UI says so plainly.
+- Writes ask first (`ConfirmDialog`): suspend/reactivate a company, deactivate/reactivate a user, grant/revoke platform
+  admin. The API refuses suspending your own company, deactivating yourself and removing the last admin; the UI
+  disables those too. Don't run writes against production accounts while testing.
 
 ## Stack
 
@@ -52,7 +66,7 @@ Query, zustand 5, react-hook-form + zod 4, axios, lucide, sonner toasts, rechart
   `Password1`): `demo@payorbit.com` (owner), `hr@payorbit.com` (HR manager: can't approve/execute),
   `employee@payorbit.com` (Amara, self-service only; wallet PIN `1234`). Team test accounts (password `Test@1234`), each in
   its own funded, empty company: `stellardev002@gmail.com` (Owner, Stellar Dev Studio), `tlayefaah@gmail.com` (Admin,
-  Layefa Technologies). The mock DB is one JSON document in localStorage
+  Layefa Technologies, platform admin). The mock DB is one JSON document in localStorage
   (`payorbit-mock-db`); "Reset demo data" on the sign-in page restores the seed. Seed dates are relative to the first run.
 - Mock payouts (`packages/mock-api/src/engine.ts`) run on a short clock: executing a run sends each payment PENDING →
   SUBMITTED (~2.5 s) → CONFIRMED (~4 s), or FAILED with a reason (no wallet, no trustline, underfunded). APPROVED runs
@@ -69,7 +83,10 @@ Query, zustand 5, react-hook-form + zod 4, axios, lucide, sonner toasts, rechart
   import the TS directly). Invite tokens follow `inviteToken()` in `seed.ts` ("invite-" + 8 chars of the employee id).
 - Backend: `https://settle.getpayorbit.com/api/v1` (same service as `https://payorbit-production.up.railway.app`; Go,
   separate repo). Local live mode: `apps/web/.env.local` with `NEXT_PUBLIC_API_SOURCE=live` and `API_PROXY_TARGET`.
-  Live login returns only `session` (`role`, `permissions`); the user and `company_id` come from the JWT claims. Swagger UI at `/docs`, spec at
+  Live login returns only `session` (`role`, `permissions`); the user and `company_id` come from the JWT claims.
+  Live test accounts (password `Test@1234`): `tlayefaah@gmail.com` (Owner of Green Lantern Corp, platform admin) and
+  `stellardev002+employee@gmail.com` (Employee in Green Lantern, paid in XLM). `stellardev002@gmail.com` itself owns
+  Stellar Dev Studio; one email can hold accounts in two companies and login picks one, so use the `+employee` alias. Swagger UI at `/docs`, spec at
   `/docs/doc.json`. Success `{ statusCode, message, data, meta? }`; errors `{ statusCode, message, error }` where `error`
   is a string or `{ message }` (422 validation).
 - The browser calls `/api/v1/*` on its own origin, rewritten in `apps/web/next.config.ts` to the backend

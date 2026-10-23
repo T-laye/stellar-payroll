@@ -59,6 +59,10 @@ export interface MockUser {
 	/** Single-use token from the employee invite email (`POST /auth/complete-profile`). */
 	invite_token: string | null;
 	wallet_pin: string | null;
+	/** PayOrbit staff: may use /admin/* across every company. */
+	is_platform_admin?: boolean;
+	platform_admin_granted_at?: string | null;
+	platform_admin_granted_by?: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -268,6 +272,7 @@ export interface MockAuditLog {
 	action: string;
 	resource_type: string;
 	resource_id: string | null;
+	metadata?: Record<string, unknown>;
 	created_at: string;
 }
 
@@ -300,7 +305,7 @@ export interface MockDb {
 }
 
 const KEY = "payorbit-mock-db";
-const VERSION = 5;
+const VERSION = 6;
 
 let memory: MockDb | null = null;
 

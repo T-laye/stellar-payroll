@@ -28,11 +28,14 @@ export const DEMO_ACCOUNTS = {
 	owner: "demo@payorbit.com",
 	hr: "hr@payorbit.com",
 	employee: "employee@payorbit.com",
+	/** PayOrbit staff: the admin console (apps/admin). */
+	platformAdmin: "admin@payorbit.com",
 } as const;
 /**
  * Test accounts for the team: each owns its own company, as POST /auth/register would make it, with
  * a funded operational wallet and a monthly USDC pay group but no employees, so the PRD's test tasks
- * (add an employee, create and pay a payroll, …) start from a clean workspace.
+ * (add an employee, create and pay a payroll, …) start from a clean workspace. `admin@payorbit.com` is
+ * PayOrbit staff (platform admin, for apps/admin); Northwind Traders starts suspended.
  */
 export const TEST_ACCOUNTS = [
 	{
@@ -41,6 +44,8 @@ export const TEST_ACCOUNTS = [
 		first: "Stellar",
 		last: "Developer",
 		role: "owner",
+		platformAdmin: false,
+		active: true,
 		company: "Stellar Dev Studio",
 		slug: "stellar-dev-studio",
 		country: "Nigeria",
@@ -52,10 +57,40 @@ export const TEST_ACCOUNTS = [
 		first: "Tubo",
 		last: "Layefa",
 		role: "admin",
+		// Mirrors live, where this account is a platform admin.
+		platformAdmin: true,
+		active: true,
 		company: "Layefa Technologies",
 		slug: "layefa-technologies",
 		country: "Nigeria",
 		timezone: "Africa/Lagos",
+	},
+	{
+		email: "admin@payorbit.com",
+		password: "Password1",
+		first: "Ola",
+		last: "Adeyemi",
+		role: "owner",
+		platformAdmin: true,
+		active: true,
+		company: "PayOrbit",
+		slug: "payorbit-hq",
+		country: "Nigeria",
+		timezone: "Africa/Lagos",
+	},
+	{
+		// A suspended customer, so the admin console has one to reactivate.
+		email: "owner@northwind.example",
+		password: "Password1",
+		first: "Grace",
+		last: "Mensah",
+		role: "owner",
+		platformAdmin: false,
+		active: false,
+		company: "Northwind Traders",
+		slug: "northwind",
+		country: "Ghana",
+		timezone: "Africa/Accra",
 	},
 ] as const;
 /** The employee demo account's wallet PIN. */
@@ -868,12 +903,15 @@ function seedTestCompany(db: MockDb, t: (typeof TEST_ACCOUNTS)[number], rand: ()
 		phone: null,
 		website: null,
 		logo_url: null,
-		is_active: true,
+		is_active: t.active,
 		created_at: created,
 		updated_at: created,
 	});
 	db.roles.push(...systemRoles(companyId, created, id));
 	db.users.push({
+		is_platform_admin: t.platformAdmin,
+		platform_admin_granted_at: t.platformAdmin ? created : null,
+		platform_admin_granted_by: null,
 		id: id(),
 		company_id: companyId,
 		email: t.email,
