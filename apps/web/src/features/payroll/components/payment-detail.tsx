@@ -103,7 +103,7 @@ export function PaymentDetail({
 											{failure.action}
 										</p>
 										{payment.error_message && (
-											<p className="rounded-md bg-card/70 px-3 py-2 font-mono text-xs break-words text-muted-foreground">
+											<p className="rounded-md bg-card/70 px-3 py-2 font-mono text-xs wrap-break-word text-muted-foreground">
 												{payment.error_message}
 											</p>
 										)}

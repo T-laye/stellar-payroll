@@ -188,7 +188,10 @@ export function ScheduleForm() {
 				)}
 
 				{step === 1 && (
-					<SectionCard title="Employee selection" description={`Each cycle pays these people their current salary. Only people paid ${formatFrequency(frequency).toLowerCase()} in ${asset} can join.`}>
+					<SectionCard
+						title="Employee selection"
+						description={`Each cycle pays these people their current salary. Only people paid ${formatFrequency(frequency).toLowerCase()} in ${asset} can join.`}
+					>
 						<div className="relative mb-3">
 							<Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
 							<Input
@@ -202,7 +205,7 @@ export function ScheduleForm() {
 						{employees.isLoading ? (
 							<TableSkeleton rows={5} columns={3} />
 						) : (
-							<ul className="max-h-[420px] divide-y divide-border overflow-y-auto rounded-xl border border-border">
+							<ul className="max-h-105 divide-y divide-border overflow-y-auto rounded-xl border border-border">
 								{visible.map((e) => (
 									<li key={e.id}>
 										<label
@@ -210,7 +213,9 @@ export function ScheduleForm() {
 												"flex items-center gap-3 px-4 py-3",
 												fits(e) ? "cursor-pointer hover:bg-accent/40" : "cursor-not-allowed opacity-50",
 											)}
-											title={fits(e) ? undefined : `Paid ${formatFrequency(e.pay_frequency).toLowerCase()} in ${e.salary_currency}`}
+											title={
+												fits(e) ? undefined : `Paid ${formatFrequency(e.pay_frequency).toLowerCase()} in ${e.salary_currency}`
+											}
 										>
 											<Checkbox
 												checked={selected.has(e.id) && fits(e)}
