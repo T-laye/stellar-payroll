@@ -58,8 +58,14 @@ export function AdminDashboard() {
 	const o = overview.data?.data;
 	const p = payroll.data?.data;
 	const t = txStats.data?.data;
-	const usdc = t?.volume_by_asset.find((v) => v.asset === "USDC");
-	const xlm = t?.volume_by_asset.find((v) => v.asset === "XLM");
+	// Paid volume per asset, largest first. The payroll stats add assets together without conversion, so
+	// they're labelled with the company's asset when it pays in one, else shown as USDC (frontend-integration.md §1).
+	const volumes = [...(t?.volume_by_asset ?? [])].sort((a, b) => Number(b.amount) - Number(a.amount));
+	const mainVolume = volumes[0];
+	const statAsset = volumes.length === 1 ? volumes[0]!.asset : "USDC";
+	// Per payment, not per attempt: the API's success_rate counts every retry attempt.
+	const settledPayments = (o?.transactions.total_confirmed ?? 0) + (o?.transactions.total_failed ?? 0);
+	const successRate = settledPayments ? ((o?.transactions.total_confirmed ?? 0) / settledPayments) * 100 : t?.success_rate;
 	const months = p?.disbursed_by_month ?? [];
 	// The current month is still running, so compare the last two complete months.
 	const latest = months[months.length - 2];
@@ -157,9 +163,9 @@ export function AdminDashboard() {
 							label="Total Payroll Processed"
 							icon={Coins}
 							loading={loadingStats}
-							value={formatMoney(usdc?.amount ?? o?.payroll.total_disbursed_all_time ?? 0, "USDC")}
+							value={formatMoney(mainVolume?.amount ?? o?.payroll.total_disbursed_all_time ?? 0, mainVolume?.asset ?? statAsset)}
 							trend={trend}
-							hint={xlm ? `+ ${formatMoney(xlm.amount, "XLM")}` : undefined}
+							hint={volumes.length > 1 ? volumes.slice(1).map((v) => `+ ${formatMoney(v.amount, v.asset)}`).join(" ") : undefined}
 						/>
 						<StatCard
 							index={1}
@@ -168,7 +174,7 @@ export function AdminDashboard() {
 							tone="success"
 							loading={loadingStats}
 							value={formatCount(o?.transactions.total_confirmed)}
-							hint={t ? `${t.success_rate}% success rate` : undefined}
+							hint={successRate !== undefined ? `${Number(successRate.toFixed(1))}% success rate` : undefined}
 							href={`${routes.transactions.list}?status=CONFIRMED`}
 						/>
 						<StatCard
@@ -212,7 +218,7 @@ export function AdminDashboard() {
 											<Skeleton className="mt-1 h-7 w-28" />
 										) : (
 											<p className="mt-1 text-2xl font-semibold tabular-nums">
-												{formatMoney(o?.payroll.total_disbursed_this_month ?? 0)}
+												{formatMoney(o?.payroll.total_disbursed_this_month ?? 0, statAsset)}
 											</p>
 										)}
 									</div>
@@ -229,7 +235,7 @@ export function AdminDashboard() {
 									</div>
 									<div>
 										<p className="text-xs font-medium text-muted-foreground">Average payroll run</p>
-										<p className="mt-1 text-lg font-semibold tabular-nums">{formatMoney(p?.average_run_amount ?? 0)}</p>
+										<p className="mt-1 text-lg font-semibold tabular-nums">{formatMoney(p?.average_run_amount ?? 0, statAsset)}</p>
 									</div>
 								</div>
 								{payroll.isLoading ? (
@@ -237,7 +243,7 @@ export function AdminDashboard() {
 								) : (
 									<BarChart
 										data={months.map((m) => ({ label: monthLabel(m.month), value: Number(m.amount) }))}
-										format={(v) => formatMoney(v, "USDC", { compact: true })}
+										format={(v) => formatMoney(v, statAsset, { compact: true })}
 									/>
 								)}
 							</div>
