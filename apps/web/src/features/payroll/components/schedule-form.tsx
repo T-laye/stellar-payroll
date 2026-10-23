@@ -20,7 +20,9 @@ import { ScheduleNotice } from "@/features/payroll/components/schedule-notice";
 import { useCreateSchedule } from "@/features/payroll/hooks";
 import type { Asset, PayCycle } from "@/features/payroll/types";
 import { DRAFT_LEAD_DAYS, payDates } from "@/features/payroll/utils";
-import { errorMessage } from "@/lib/api/request";
+import { errorMessage, newIdempotencyKey } from "@/lib/api/request";
+import { sumAmounts } from "@/lib/decimal";
+import { cn } from "@repo/ui/lib/utils";
 import { formatDate, formatFrequency, formatMoney, toDateInput } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { useMountTime } from "@/lib/use-now";
@@ -55,12 +57,13 @@ export function ScheduleForm() {
 	const [picked, setPicked] = useState<Set<string> | null>(null);
 	const [search, setSearch] = useState("");
 
-	const active = (employees.data ?? []).filter((e) => e.status === "ACTIVE");
-	const selected =
-		picked ??
-		new Set(active.filter((e) => e.salary_currency === asset && (e.pay_frequency ?? "MONTHLY") === frequency).map((e) => e.id));
-	const chosen = active.filter((e) => selected.has(e.id));
-	const amount = chosen.reduce((sum, e) => sum + Number(e.salary_amount), 0);
+	// Members must be active or pending, paid in the schedule's asset, and share its frequency (400 otherwise).
+	const active = (employees.data ?? []).filter((e) => e.status === "ACTIVE" || e.status === "PENDING");
+	const fits = (e: (typeof active)[number]) => e.salary_currency === asset && (e.pay_frequency ?? "MONTHLY") === frequency;
+	const selected = picked ?? new Set(active.filter(fits).map((e) => e.id));
+	const chosen = active.filter((e) => selected.has(e.id) && fits(e));
+	const amount = sumAmounts(chosen.map((e) => e.salary_amount));
+	const [createKey, setCreateKey] = useState(newIdempotencyKey);
 	const term = search.trim().toLowerCase();
 	const visible = active.filter((e) => !term || `${e.first_name} ${e.last_name} ${e.job_title}`.toLowerCase().includes(term));
 	const upcoming = firstDate ? payDates(Date.parse(toIso(firstDate)), frequency, 3) : [];
@@ -83,7 +86,10 @@ export function ScheduleForm() {
 
 	const submit = () =>
 		create.mutate(
-			{ name: name.trim(), frequency, asset, employee_ids: [...selected], next_run_at: toIso(firstDate) },
+			{
+				payload: { name: name.trim(), frequency, asset, employee_ids: chosen.map((e) => e.id), next_run_at: toIso(firstDate) },
+				key: createKey,
+			},
 			{
 				onSuccess: (response) => {
 					toast.success("Schedule created", {
@@ -91,7 +97,10 @@ export function ScheduleForm() {
 					});
 					router.push(routes.recurring.detail(response.data.id));
 				},
-				onError: (error) => toast.error(errorMessage(error, "Couldn't create the schedule")),
+				onError: (error) => {
+					setCreateKey(newIdempotencyKey());
+					toast.error(errorMessage(error, "Couldn't create the schedule"));
+				},
 			},
 		);
 
@@ -179,7 +188,7 @@ export function ScheduleForm() {
 				)}
 
 				{step === 1 && (
-					<SectionCard title="Employee selection" description="Each cycle pays these people their current salary.">
+					<SectionCard title="Employee selection" description={`Each cycle pays these people their current salary. Only people paid ${formatFrequency(frequency).toLowerCase()} in ${asset} can join.`}>
 						<div className="relative mb-3">
 							<Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
 							<Input
@@ -196,15 +205,22 @@ export function ScheduleForm() {
 							<ul className="max-h-[420px] divide-y divide-border overflow-y-auto rounded-xl border border-border">
 								{visible.map((e) => (
 									<li key={e.id}>
-										<label className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-accent/40">
+										<label
+											className={cn(
+												"flex items-center gap-3 px-4 py-3",
+												fits(e) ? "cursor-pointer hover:bg-accent/40" : "cursor-not-allowed opacity-50",
+											)}
+											title={fits(e) ? undefined : `Paid ${formatFrequency(e.pay_frequency).toLowerCase()} in ${e.salary_currency}`}
+										>
 											<Checkbox
-												checked={selected.has(e.id)}
+												checked={selected.has(e.id) && fits(e)}
+												disabled={!fits(e)}
 												onCheckedChange={(v) => toggle(e.id, v === true)}
 												aria-label={`Select ${e.first_name} ${e.last_name}`}
 											/>
 											<PersonCell
 												name={`${e.first_name} ${e.last_name}`}
-												subtitle={`${e.job_title} · ${formatFrequency(e.pay_frequency)}`}
+												subtitle={`${e.job_title} · ${formatFrequency(e.pay_frequency)} · ${e.salary_currency}`}
 												size="sm"
 												className="flex-1"
 											/>

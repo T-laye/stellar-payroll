@@ -163,9 +163,16 @@ route("POST", "/auth/reset-password", "public", ({ body }) => {
 	if (str(body.password).length < 6) throw new HttpError(422, "password must be at least 6 characters");
 	const email = str(body.email);
 	const done = update((db) => {
-		const user = db.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+		// Employee invites reuse this link: the token activates the account (frontend-integration.md §4).
+		const invited = db.users.find((u) => u.invite_token && u.invite_token === str(body.token) && !u.is_active);
+		const user = invited ?? (email ? db.users.find((u) => u.email.toLowerCase() === email.toLowerCase()) : undefined);
 		if (!user) return false;
 		user.password = str(body.password);
+		if (invited) {
+			user.is_active = true;
+			user.invite_token = null;
+			user.email_verified_at ??= iso(Date.now());
+		}
 		user.updated_at = iso(Date.now());
 		return true;
 	});

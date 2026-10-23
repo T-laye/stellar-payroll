@@ -3,7 +3,8 @@
 Cross-border payroll on Stellar. This sprint (Instaward round 2) turns the prototype into an enhanced MVP: add employees →
 create payroll → review → approve/schedule → bulk Stellar payouts → monitor → employees see their payments.
 PRD: https://docs.google.com/document/d/177jQW9jrV-ykp3ORLX9G3gdJIfU7WeWsf-FwYefLQYk.
-**Scope, status and the backend contract: `docs/PLAN.md`.** Structure mirrors `../useStellance/stellance`; when in doubt
+**Scope and status: `docs/PLAN.md`. The backend contract: `frontend-integration.md` (the backend team's guide; it wins
+over the Swagger wherever they differ).** Structure mirrors `../useStellance/stellance`; when in doubt
 about a convention, check how Stellance did it.
 
 ## Monorepo
@@ -49,21 +50,26 @@ Query, zustand 5, react-hook-form + zod 4, axios, lucide, sonner toasts, rechart
   every request in the browser from `@repo/mock-api` (installed as an axios `adapter`, loaded only in mock mode); `live`
   calls the API. Same URLs, envelopes and error shapes either way, so hooks never know. Demo accounts (password
   `Password1`): `demo@payorbit.com` (owner), `hr@payorbit.com` (HR manager: can't approve/execute),
-  `employee@payorbit.com` (Amara, self-service only; wallet PIN `1234`). The mock DB is one JSON document in localStorage
+  `employee@payorbit.com` (Amara, self-service only; wallet PIN `1234`). Team test accounts (password `Test@1234`), each in
+  its own funded, empty company: `stellardev002@gmail.com` (Owner, Stellar Dev Studio), `tlayefaah@gmail.com` (Admin,
+  Layefa Technologies). The mock DB is one JSON document in localStorage
   (`payorbit-mock-db`); "Reset demo data" on the sign-in page restores the seed. Seed dates are relative to the first run.
 - Mock payouts (`packages/mock-api/src/engine.ts`) run on a short clock: executing a run sends each payment PENDING →
   SUBMITTED (~2.5 s) → CONFIRMED (~4 s), or FAILED with a reason (no wallet, no trustline, underfunded). APPROVED runs
   start by themselves at `scheduled_at`, like the live scheduler. Retrying re-checks the cause, so linking a missing
   wallet then retrying succeeds. Mock tokens are unsigned JWTs whose payload carries `permissions`, as the app expects.
-- Endpoints and fields the live API doesn't have yet are served by the mock where the plan proposes them, marked as
-  proposals in comments: `GET /users/me/transactions`, filters + pagination on `GET /transactions` (`status` list, `from`,
-  `to`, `q`, `page`, `page_size`), `/payroll/schedules/*` (recurring payroll: drafts a run 3 days before each pay date,
-  never approves it), `/notifications` (+ `read`, `read-all`), run `name` / `employee_count` / `payments`, transaction
-  `failure_code` / `attempts` / `employee_name`, employee `pay_frequency` / `invite_status`, `employees_paid_*` stats,
-  approve/execute refusing runs with missing wallets (409), `PATCH /auth/change-verification-email`.
+- The mock follows `frontend-integration.md`: `/payroll/runs/{id}/review`, approve/execute 409 with `data.issues[]`,
+  four-eyes (a run's creator can't approve it while another active approver exists), `CANCELLED` runs, approved-late runs
+  waiting for execute, retries creating a new transaction (202, `attempts[]`, max 5, `retryable`), `retry-failed`,
+  employee `PENDING` until a wallet is linked, `POST …/employees/{id}/invite` (invite links reuse
+  `/auth/reset-password?token=`), `/users/me/employee`, `/users/me/payments/summary`, `/users/me/transactions`,
+  `/payroll/schedules/*`, `/notifications` (+ `unread-count`), filters and pagination (`page`, `page_size` ≤ 200,
+  `meta.total_pages`; `to` is exclusive), `Idempotency-Key` replay, error slugs, 404 for unknown routes.
 - Headless check of the mock: drive `dispatch()` from `router.ts` with a fake `Date.now` (jiti can
   import the TS directly). Invite tokens follow `inviteToken()` in `seed.ts` ("invite-" + 8 chars of the employee id).
-- Backend: `https://payorbit-production.up.railway.app/api/v1` (Go, separate repo). Swagger UI at `/docs`, spec at
+- Backend: `https://settle.getpayorbit.com/api/v1` (same service as `https://payorbit-production.up.railway.app`; Go,
+  separate repo). Local live mode: `apps/web/.env.local` with `NEXT_PUBLIC_API_SOURCE=live` and `API_PROXY_TARGET`.
+  Live login returns only `session` (`role`, `permissions`); the user and `company_id` come from the JWT claims. Swagger UI at `/docs`, spec at
   `/docs/doc.json`. Success `{ statusCode, message, data, meta? }`; errors `{ statusCode, message, error }` where `error`
   is a string or `{ message }` (422 validation).
 - The browser calls `/api/v1/*` on its own origin, rewritten in `apps/web/next.config.ts` to the backend
@@ -73,22 +79,26 @@ Query, zustand 5, react-hook-form + zod 4, axios, lucide, sonner toasts, rechart
   (zustand, persisted to sessionStorage under `payorbit_auth`, see `features/auth/session.ts`). `ProtectedRoute` gates
   `(dashboard)`. Permissions come from the session (`hasAnyPermission(user, [...])`); pages check them before rendering.
 - `lib/api/client.ts`: `axiosInstance` (public) and `axiosAuth` (signed-in; `lib/api/use-axios-auth.ts` adds both
-  headers). Feature `api.ts` functions use `api.get/post/patch/delete` from `lib/api/request.ts`: both headers, the
-  envelope unwrapped, failures as `ApiError` with the API's message (`errorMessage(error)` for toasts).
+  headers). Feature `api.ts` functions use `api.get/post/patch/delete` from `lib/api/request.ts`: both headers, an
+  `Idempotency-Key` on every POST/PATCH (pass one made when the form or dialog opens, `newIdempotencyKey()`; make a new
+  one after a failure), failures as `ApiError` with the API's message and `data` (`errorMessage`, `blockingIssues`), and a
+  401 ends the session (`expireSession`: the pay token is a 30-minute sliding session). Lists the UI treats as complete
+  ask for `page_size: FULL_PAGE` (200).
 - Admin vs employee: `isPayrollAdmin(user)` (`payroll:read` or `employees:read`) picks the shell's nav and what
   `/overview` shows. Admin pages wrap their content in `<RequirePermission any={[...]}>` (hooks live in the child).
 - Most data is company-scoped: `/companies/{company_id}/…` with the id from the session. Payroll runs and transactions
   are scoped by the JWT instead (`/payroll/runs`, `/transactions`).
-- Amounts are numeric strings. The API docs say salaries are in base units (7 decimals); confirm against live data before
-  formatting (docs/PLAN.md, open questions).
+- Money: every amount is a decimal string in whole asset units ("5200.0000000" = 5,200 USDC), requests and responses;
+  nothing is in base units. Never add amounts with JS `Number`: `sumAmounts` / `toInputAmount` in `lib/decimal.ts`.
 - Wallets can be custodial (the API creates them and signs); transfers need the wallet PIN. Never log, persist or render a
   private key outside the explicit export flow.
 - Mutations never auto-retry (`retry: false`): a retried execution or transfer could go out twice.
 
 ## Domain rules
 
-- Run lifecycle (API): `DRAFT → APPROVED → PROCESSING → COMPLETED | FAILED`, `FAILED → RETRYING → …`. Only DRAFT runs can be
-  edited or cancelled. An APPROVED run is picked up by the backend scheduler at `scheduled_at` and paid automatically.
+- Run lifecycle (API): `DRAFT → APPROVED → PROCESSING → COMPLETED | FAILED`, `FAILED → RETRYING → …`, and `CANCELLED`
+  (DRAFT or APPROVED, 204). An APPROVED run is paid automatically at `scheduled_at` only if it was approved before then;
+  approved later, it waits for execute (the UI's "Approved" phase with Pay now).
 - Payment (transaction) lifecycle: `PENDING → SUBMITTED → CONFIRMED | FAILED`; shown to people as
   Pending → Processing → Completed / Failed. Never show Completed until the API says `CONFIRMED`.
 - A payment is verifiable once it has `stellar_tx_hash`: link it to Stellar Expert (Testnet).
@@ -149,4 +159,8 @@ scroll.
 6. Keep all `@radix-ui/*` packages on the same release.
 7. `recharts` stays on 2.x (shadcn `chart.tsx`).
 8. `packages/ui` type-checks with `noUncheckedIndexedAccess`; the apps don't.
-9. The API answers unknown routes with `500 internal_error`, not 404: a 500 on a new call usually means a wrong path.
+9. Date fields in request bodies are RFC 3339 (`2026-10-01T00:00:00Z`); a bare `YYYY-MM-DD` gets a detail-less
+   `400 bad_request` from the live API (the mock mirrors this). Unknown routes are 404.
+10. Live differs from the mock in field names; `features/payroll/normalize.ts` maps them (review items' `line_item_id`,
+    schedule members `{ id, name, amount, status }`, one transaction row per retry attempt). The live employee list has no
+    `wallet` field (single GETs do): use `hasWallet()` from `lib/status.ts`, never `!employee.wallet`.

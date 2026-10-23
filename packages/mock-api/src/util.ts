@@ -40,8 +40,8 @@ export const DAY = 86_400_000;
 
 export const iso = (ms: number) => new Date(ms).toISOString();
 
-/** Amounts are decimal strings with 2 places, as the UI displays them. */
-export const money = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
+/** Amounts are decimal strings in whole asset units with seven places, as the API returns them ("5200.0000000"). */
+export const money = (n: number) => (Math.round(n * 1e7) / 1e7).toFixed(7);
 
 export const num = (value: string | null | undefined) => Number.parseFloat(value ?? "") || 0;
 

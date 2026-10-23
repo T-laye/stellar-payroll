@@ -3,19 +3,31 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	getNotifications,
+	getUnreadCount,
 	markAllNotificationsRead,
 	markNotificationRead,
 	type AppNotification,
 } from "@/features/notifications/api";
 import { routes } from "@/lib/routes";
 
-/** Polls gently: the bell should notice a payroll finishing without a reload. */
-export function useNotifications(unread = false) {
+/** The list. `enabled` lets the bell fetch it only when opened. */
+export function useNotifications(unread = false, enabled = true) {
 	return useQuery({
 		queryKey: ["notifications", { unread }],
 		queryFn: () => getNotifications(unread),
-		refetchInterval: 15_000,
+		enabled,
 		staleTime: 5_000,
+	});
+}
+
+/** The bell's number: the cheap endpoint, polled every 30 seconds. */
+export function useUnreadCount() {
+	return useQuery({
+		queryKey: ["notifications", "unread-count"],
+		queryFn: getUnreadCount,
+		select: (response) => response.data.unread_count,
+		refetchInterval: 30_000,
+		staleTime: 10_000,
 	});
 }
 
@@ -35,7 +47,7 @@ export function useMarkAllNotificationsRead() {
 	});
 }
 
-/** Where a notification leads. Employees open their own payment; admins the run or payment. */
+/** Where a notification leads. Employees always get a transaction (their own); no resource, no link. */
 export function notificationHref(n: AppNotification, isAdmin: boolean) {
 	if (!n.resource_id) return null;
 	switch (n.resource_type) {
@@ -45,8 +57,6 @@ export function notificationHref(n: AppNotification, isAdmin: boolean) {
 			return isAdmin ? routes.transactions.detail(n.resource_id) : routes.me.payment(n.resource_id);
 		case "schedule":
 			return isAdmin ? routes.recurring.detail(n.resource_id) : null;
-		case "employee":
-			return isAdmin ? routes.employees.detail(n.resource_id) : null;
 		default:
 			return null;
 	}

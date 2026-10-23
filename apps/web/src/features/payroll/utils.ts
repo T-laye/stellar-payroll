@@ -1,9 +1,9 @@
 import type { PayrollGroup, PayrollRun } from "@/features/payroll/types";
 
-/** A run's display name: its own (proposed field), else "<Month Year> payroll" from its period. */
-export function runName(run: Pick<PayrollRun, "name" | "period_end" | "group_id">, groups?: PayrollGroup[]) {
+/** A run's display name: its own, else "<Month Year> payroll" from `period_start`. */
+export function runName(run: Pick<PayrollRun, "name" | "period_start" | "group_id">, groups?: PayrollGroup[]) {
 	if (run.name) return run.name;
-	const month = new Date(run.period_end).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+	const month = new Date(run.period_start).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 	const group = groups?.find((g) => g.id === run.group_id);
 	return group ? `${group.name} · ${month}` : `${month} payroll`;
 }

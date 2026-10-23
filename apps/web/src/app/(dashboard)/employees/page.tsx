@@ -84,7 +84,8 @@ function Employees() {
 	};
 
 	const toggleActive = (e: CompanyEmployee) => {
-		const status = e.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+		// Pending and active people can be deactivated; activating needs a wallet (409 without one).
+		const status = e.status === "INACTIVE" ? "ACTIVE" : "INACTIVE";
 		setStatus.mutate(
 			{ id: e.id, status },
 			{
@@ -207,9 +208,9 @@ function Employees() {
 															<DropdownMenuSeparator />
 															<DropdownMenuItem
 																onSelect={() => toggleActive(e)}
-																variant={e.status === "ACTIVE" ? "destructive" : "default"}
+																variant={e.status === "INACTIVE" ? "default" : "destructive"}
 															>
-																<Power /> {e.status === "ACTIVE" ? "Deactivate" : "Activate"}
+																<Power /> {e.status === "INACTIVE" ? "Activate" : "Deactivate"}
 															</DropdownMenuItem>
 														</DropdownMenuContent>
 													</DropdownMenu>

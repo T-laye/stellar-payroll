@@ -6,7 +6,7 @@ import { ExternalLink } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import Logo from "@/components/Logo";
 import { useAuthStore } from "@/features/auth/store";
-import { useNotifications } from "@/features/notifications/hooks";
+import { useUnreadCount } from "@/features/notifications/hooks";
 import { USE_MOCK_API } from "@/lib/api/source";
 import { routes } from "@/lib/routes";
 import { isActive, navFor } from "@/components/layouts/nav";
@@ -15,8 +15,7 @@ import { isActive, navFor } from "@/components/layouts/nav";
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 	const pathname = usePathname();
 	const user = useAuthStore((state) => state.user);
-	const { data } = useNotifications();
-	const unread = data?.meta?.unread_count ?? 0;
+	const unread = useUnreadCount().data ?? 0;
 	const groups = navFor(user);
 
 	return (

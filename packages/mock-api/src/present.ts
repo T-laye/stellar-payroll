@@ -26,8 +26,29 @@ export function employeeDto(db: MockDb, e: MockEmployee) {
 	};
 }
 
-export function txDto(tx: MockTransaction) {
-	const { next_at: _next, ...rest } = tx;
+/** Retries are capped at 5 attempts per payment (frontend-integration.md §3). */
+export const MAX_ATTEMPTS = 5;
+
+export const isRetryable = (tx: MockTransaction) => tx.status === "FAILED" && !tx.superseded_by && tx.attempts.length < MAX_ATTEMPTS;
+
+/** A transaction as the API returns it; `attempts[]` only on the detail route. */
+export function txDto(db: MockDb, tx: MockTransaction, { attempts = false } = {}) {
+	const { next_at: _next, superseded_by: _superseded, attempts: history, ...rest } = tx;
+	const e = db.employees.find((x) => x.id === tx.employee_id);
+	const run = db.runs.find((r) => r.id === tx.payroll_run_id);
+	return {
+		...rest,
+		employee_name: e ? `${e.first_name} ${e.last_name}` : "",
+		payroll_run_name: run?.name ?? "",
+		retryable: isRetryable(tx),
+		explorer_url: tx.status === "CONFIRMED" && tx.stellar_tx_hash ? `https://stellar.expert/explorer/testnet/tx/${tx.stellar_tx_hash}` : null,
+		...(attempts ? { attempts: history } : {}),
+	};
+}
+
+/** The employee's own view: failure detail stays with the employer. */
+export function myTxDto(db: MockDb, tx: MockTransaction, options = {}) {
+	const { error_message: _error, failure_code: _code, retryable: _retryable, ...rest } = txDto(db, tx, options);
 	return rest;
 }
 
@@ -84,6 +105,14 @@ export function required(body: Record<string, unknown>, ...fields: string[]) {
 	for (const field of fields) {
 		const value = body[field];
 		if (value === undefined || value === null || String(value).trim() === "") throw new HttpError(422, `${field} is required`);
+	}
+}
+
+/** Like the live API: date fields are RFC 3339 timestamps; a bare YYYY-MM-DD is a 400. */
+export function requireTimestamp(body: Record<string, unknown>, ...fields: string[]) {
+	for (const field of fields) {
+		const value = str(body[field]);
+		if (value && (!value.includes("T") || Number.isNaN(Date.parse(value)))) throw new HttpError(400, "Bad Request");
 	}
 }
 

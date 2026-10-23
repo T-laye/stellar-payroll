@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, ExternalLink, FileText, RotateCw, ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@repo/ui/button";
 import { toast } from "@repo/ui/sonner";
@@ -14,10 +15,10 @@ import { DetailList, SectionCard } from "@/components/section-card";
 import { PaymentStatusPill, TonePill } from "@/components/status-pill";
 import { useRetryPayment } from "@/features/payroll/hooks";
 import type { Transaction } from "@/features/payroll/types";
-import { errorMessage } from "@/lib/api/request";
+import { errorMessage, newIdempotencyKey } from "@/lib/api/request";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { routes } from "@/lib/routes";
-import { MAX_RETRIES, canRetry, explorerTxUrl, failureInfo } from "@/lib/stellar";
+import { MAX_RETRIES, canRetry, failureInfo, paymentExplorerUrl } from "@/lib/stellar";
 
 /**
  * One payment, for an admin (employee, failure reason, retry, attempts, payroll link) or for the
@@ -36,19 +37,29 @@ export function PaymentDetail({
 	const failed = payment.status === "FAILED";
 	const completed = payment.status === "CONFIRMED";
 	const failure = failed ? failureInfo(payment) : null;
-	const [confirmRetry, setConfirmRetry] = useState(false);
+	const router = useRouter();
+	// The dialog's idempotency key, made when it opens.
+	const [retryKey, setRetryKey] = useState<string | null>(null);
+	const confirmRetry = retryKey !== null;
+	const setConfirmRetry = (open: boolean) => setRetryKey(open ? newIdempotencyKey() : null);
 	const retry = useRetryPayment();
+	const explorerUrl = paymentExplorerUrl(payment);
 	const retryable = admin && canRetryPayments && canRetry(payment);
 	const attempts = payment.attempts ?? [];
 
 	const doRetry = () =>
-		retry.mutate(payment.id, {
-			onSuccess: () => {
-				toast.success("Payment queued for retry", { description: "It will be sent again in a few seconds." });
-				setConfirmRetry(false);
+		retry.mutate(
+			{ id: payment.id, key: retryKey ?? newIdempotencyKey() },
+			{
+				onSuccess: (next) => {
+					toast.success("Payment queued for retry", { description: "A new attempt is on its way; this one stays in its history." });
+					setConfirmRetry(false);
+					// A retry is a new transaction: follow it.
+					if (next.id && next.id !== payment.id) router.replace(routes.transactions.detail(next.id));
+				},
+				onError: (error) => toast.error(errorMessage(error, "Couldn't retry this payment")),
 			},
-			onError: (error) => toast.error(errorMessage(error, "Couldn't retry this payment")),
-		});
+		);
 
 	return (
 		<div className="grid gap-6 lg:grid-cols-3">
@@ -117,7 +128,7 @@ export function PaymentDetail({
 										</div>
 										{admin && !canRetry(payment) && (
 											<p className="text-xs text-muted-foreground">
-												This payment has used all {MAX_RETRIES} retries. Create a new payroll to pay it.
+												This payment has used all {MAX_RETRIES} attempts. Create a new payroll to pay it.
 											</p>
 										)}
 									</>
@@ -154,7 +165,7 @@ export function PaymentDetail({
 							{ label: "Transaction hash", value: <HashValue value={payment.stellar_tx_hash} /> },
 							{ label: "Ledger", value: payment.ledger_sequence ? `#${payment.ledger_sequence.toLocaleString("en-US")}` : "--" },
 							{ label: "Network fee", value: payment.fee_amount ? `${payment.fee_amount} XLM` : "--", hidden: !admin },
-							{ label: "Retries", value: `${payment.retry_count} of ${MAX_RETRIES}`, hidden: !admin },
+							{ label: "Attempts", value: `${Math.max(1, payment.attempts?.length ?? payment.retry_count + 1)} of ${MAX_RETRIES}`, hidden: !admin },
 							{ label: "From", value: <HashValue value={payment.from_address} kind="account" />, hidden: !admin },
 							{ label: "To wallet", value: <HashValue value={payment.to_address || null} kind="account" /> },
 						]}
@@ -178,7 +189,7 @@ export function PaymentDetail({
 									{a.stellar_tx_hash ? (
 										<HashValue value={a.stellar_tx_hash} />
 									) : (
-										a.error_message && <span className="w-full pl-5 text-xs text-muted-foreground">{failureInfo(a).summary}</span>
+										a.error && <span className="w-full pl-5 text-xs text-muted-foreground">{failureInfo({ failure_code: a.failure_code, error_message: a.error }).summary}</span>
 									)}
 								</li>
 							))}
@@ -209,7 +220,7 @@ export function PaymentDetail({
 								</div>
 							</div>
 							<Button asChild className="w-full">
-								<a href={explorerTxUrl(payment.stellar_tx_hash)} target="_blank" rel="noreferrer">
+								<a href={explorerUrl ?? "#"} target="_blank" rel="noreferrer">
 									View on Stellar Expert <ExternalLink />
 								</a>
 							</Button>

@@ -19,17 +19,8 @@ export function useCurrentUser() {
 		queryFn: getCurrentUser,
 		enabled: Boolean(session?.access_token || session?.pay_token),
 		staleTime: 60_000,
-		retry: (failureCount, error) => {
-			// Don't retry on 401/403 errors (authentication/authorization failures)
-			if (
-				error instanceof ApiError &&
-				(error.status === 401 || error.status === 403)
-			) {
-				return false;
-			}
-			// Retry other errors up to 2 times
-			return failureCount < 2;
-		},
+		// 401 = the session ended (handled centrally); 403 = no permission. Neither improves with a retry.
+		retry: (failureCount, error) => !(error instanceof ApiError && (error.status === 401 || error.status === 403)) && failureCount < 2,
 	});
 
 	useEffect(() => {
@@ -38,14 +29,9 @@ export function useCurrentUser() {
 		}
 	}, [query.data]);
 
-	// Handle authentication errors by logging out
+	// Only a 401 ends the session; a 403 is a permission answer, not a sign-out.
 	useEffect(() => {
-		if (query.error && query.error instanceof ApiError) {
-			if (query.error.status === 401 || query.error.status === 403) {
-				// Token is invalid or expired, logout the user
-				logout();
-			}
-		}
+		if (query.error instanceof ApiError && query.error.status === 401) logout();
 	}, [query.error, logout]);
 
 	return query;

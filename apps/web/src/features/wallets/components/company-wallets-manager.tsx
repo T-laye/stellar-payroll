@@ -1,37 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-	AlertCircle,
-	CheckCircle2,
-	Coins,
-	Copy,
-	Loader2,
-	Plus,
-	RefreshCcw,
-	ShieldCheck,
-	Wallet,
-} from "lucide-react";
+import { AlertCircle, CheckCircle2, Coins, Copy, Loader2, Plus, RefreshCcw, ShieldCheck, Wallet } from "lucide-react";
 import { toast } from "@repo/ui/sonner";
 import { Badge } from "@repo/ui/badge";
 import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@repo/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@repo/ui/dialog";
 import { Input } from "@repo/ui/input";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@repo/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/select";
 import { useCompanyWallet } from "@/features/wallets/hooks";
 import {
 	useAddCompanyWalletTrustline,
@@ -40,12 +17,9 @@ import {
 	useCreateCompanyWallet,
 } from "@/features/wallets/hooks";
 import { useAuthStore } from "@/features/auth/store";
+import { assetCode } from "@/lib/stellar";
 import { useWalletStore } from "@/features/wallets/store";
-import {
-	formatStatAmount,
-	formatStatDate,
-	formatStatNumber,
-} from "@/lib/format";
+import { formatStatAmount, formatStatDate, formatStatNumber } from "@/lib/format";
 
 function maskAddress(value: string) {
 	if (value.length <= 12) {
@@ -64,20 +38,15 @@ export function CompanyWalletsManager() {
 	const companyId = useAuthStore((state) => state.user?.company_id);
 	const wallets = useWalletStore((state) => state.wallets);
 	const selectedWallet = useWalletStore((state) => state.selectedWallet);
-	const { isLoading: isWalletsLoading, isError: isWalletsError } =
-		useCompanyWallets(companyId ?? undefined);
+	const { isLoading: isWalletsLoading, isError: isWalletsError } = useCompanyWallets(companyId ?? undefined);
 	const { data: walletStatsResponse } = useCompanyWallet(companyId || "");
-	const { mutateAsync: createCompanyWallet, isPending: isCreatingWallet } =
-		useCreateCompanyWallet(companyId ?? undefined);
-	const { mutateAsync: addWalletTrustline, isPending: isAddingTrustline } =
-		useAddCompanyWalletTrustline(companyId ?? "");
+	const { mutateAsync: createCompanyWallet, isPending: isCreatingWallet } = useCreateCompanyWallet(companyId ?? undefined);
+	const { mutateAsync: addWalletTrustline, isPending: isAddingTrustline } = useAddCompanyWalletTrustline(companyId ?? "");
 
 	const [detailsWalletId, setDetailsWalletId] = useState<string | null>(null);
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [trustlineDialogOpen, setTrustlineDialogOpen] = useState(false);
-	const [trustlineWalletId, setTrustlineWalletId] = useState<string | null>(
-		null,
-	);
+	const [trustlineWalletId, setTrustlineWalletId] = useState<string | null>(null);
 	const [createForm, setCreateForm] = useState({
 		stellar_address: "",
 		secret_key: "",
@@ -88,18 +57,13 @@ export function CompanyWalletsManager() {
 		asset_issuer: "",
 	});
 
-	const detailsQuery = useCompanyWalletDetails(
-		detailsWalletId ?? undefined,
-		companyId ?? undefined,
-	);
+	const detailsQuery = useCompanyWalletDetails(detailsWalletId ?? undefined, companyId ?? undefined);
 
 	const walletStats = walletStatsResponse?.data;
 	const totalWallets = useMemo(() => wallets.length, [wallets]);
 	const fundedWallets = walletStats?.funded_wallets ?? 0;
 	const unfundedWallets = walletStats?.unfunded_wallets ?? 0;
-	const companyWalletTypeStats = Object.entries(
-		walletStats?.company_wallets_by_type ?? {},
-	);
+	const companyWalletTypeStats = Object.entries(walletStats?.company_wallets_by_type ?? {});
 
 	if (!companyId) {
 		return (
@@ -161,9 +125,7 @@ export function CompanyWalletsManager() {
 				wallet_type: "OPERATIONAL",
 			});
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to create wallet.",
-			);
+			toast.error(error instanceof Error ? error.message : "Failed to create wallet.");
 		}
 	};
 
@@ -172,10 +134,7 @@ export function CompanyWalletsManager() {
 			return;
 		}
 
-		if (
-			!trustlineForm.asset_code.trim() ||
-			!trustlineForm.asset_issuer.trim()
-		) {
+		if (!trustlineForm.asset_code.trim() || !trustlineForm.asset_issuer.trim()) {
 			toast.error("Asset code and issuer are required.");
 			return;
 		}
@@ -196,9 +155,7 @@ export function CompanyWalletsManager() {
 			toast.success("Trustline added successfully.");
 			setTrustlineDialogOpen(false);
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to add trustline.",
-			);
+			toast.error(error instanceof Error ? error.message : "Failed to add trustline.");
 		}
 	};
 
@@ -207,12 +164,9 @@ export function CompanyWalletsManager() {
 			<div className="space-y-5">
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div>
-						<p className="text-sm font-medium text-foreground">
-							Company Wallets
-						</p>
+						<p className="text-sm font-medium text-foreground">Company Wallets</p>
 						<p className="mt-0.5 text-xs text-muted-foreground">
-							Create and monitor company wallets, then add trustlines to support
-							the assets your payroll operations need.
+							Create and monitor company wallets, then add trustlines to support the assets your payroll operations need.
 						</p>
 					</div>
 					<Button className="gap-2" onClick={() => setCreateDialogOpen(true)}>
@@ -240,9 +194,7 @@ export function CompanyWalletsManager() {
 						},
 						{
 							label: "Wallet Types",
-							value: formatStatNumber(
-								companyWalletTypeStats.length || (totalWallets ? 1 : 0),
-							),
+							value: formatStatNumber(companyWalletTypeStats.length || (totalWallets ? 1 : 0)),
 							icon: ShieldCheck,
 						},
 					].map((item) => {
@@ -252,12 +204,8 @@ export function CompanyWalletsManager() {
 							<Card key={item.label} className="p-4">
 								<div className="flex items-start justify-between gap-3">
 									<div>
-										<p className="text-xs text-muted-foreground">
-											{item.label}
-										</p>
-										<p className="mt-2 text-2xl font-semibold text-foreground">
-											{item.value}
-										</p>
+										<p className="text-xs text-muted-foreground">{item.label}</p>
+										<p className="mt-2 text-2xl font-semibold text-foreground">{item.value}</p>
 									</div>
 									<div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
 										<Icon className="h-5 w-5 text-primary" />
@@ -298,42 +246,30 @@ export function CompanyWalletsManager() {
 							const balances = isSelectedWallet ? selectedWallet.balances : [];
 
 							return (
-								<div
-									key={wallet.id}
-									className="rounded-2xl border border-border bg-muted/20 p-4"
-								>
+								<div key={wallet.id} className="rounded-2xl border border-border bg-muted/20 p-4">
 									<div className="flex flex-wrap items-start justify-between gap-3">
 										<div className="space-y-2">
 											<div className="flex flex-wrap items-center gap-2">
-												<p className="text-sm font-semibold text-foreground">
-													{wallet.wallet_type}
-												</p>
+												<p className="text-sm font-semibold text-foreground">{wallet.wallet_type}</p>
 												<Badge variant="outline">{wallet.network}</Badge>
-												<Badge
-													variant={wallet.is_funded ? "secondary" : "outline"}
-												>
+												<Badge variant={wallet.is_funded ? "secondary" : "outline"}>
 													{wallet.is_funded ? "Funded" : "Unfunded"}
 												</Badge>
 											</div>
 											<div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-												<span className="font-mono text-foreground">
-													{maskAddress(wallet.stellar_address)}
-												</span>
+												<span className="font-mono text-foreground">{maskAddress(wallet.stellar_address)}</span>
 												<Button
 													variant="ghost"
 													size="sm"
 													className="h-7 gap-1 px-2"
-													onClick={() =>
-														handleCopy(wallet.stellar_address, "Wallet address")
-													}
+													onClick={() => handleCopy(wallet.stellar_address, "Wallet address")}
 												>
 													<Copy className="h-3.5 w-3.5" />
 													Copy
 												</Button>
 											</div>
 											<p className="text-xs text-muted-foreground">
-												Created {formatStatDate(wallet.created_at)} • Updated{" "}
-												{formatStatDate(wallet.updated_at)}
+												Created {formatStatDate(wallet.created_at)} • Updated {formatStatDate(wallet.updated_at)}
 											</p>
 										</div>
 
@@ -342,11 +278,7 @@ export function CompanyWalletsManager() {
 												variant="outline"
 												size="sm"
 												className="gap-2"
-												onClick={() =>
-													setDetailsWalletId((current) =>
-														current === wallet.id ? null : wallet.id,
-													)
-												}
+												onClick={() => setDetailsWalletId((current) => (current === wallet.id ? null : wallet.id))}
 											>
 												{detailsQuery.isFetching && isExpanded ? (
 													<Loader2 className="h-4 w-4 animate-spin" />
@@ -355,12 +287,7 @@ export function CompanyWalletsManager() {
 												)}
 												{isExpanded ? "Hide Details" : "View Details"}
 											</Button>
-											<Button
-												variant="outline"
-												size="sm"
-												className="gap-2"
-												onClick={() => openTrustlineDialog(wallet.id)}
-											>
+											<Button variant="outline" size="sm" className="gap-2" onClick={() => openTrustlineDialog(wallet.id)}>
 												<Coins className="h-4 w-4" />
 												Add Trustline
 											</Button>
@@ -370,50 +297,30 @@ export function CompanyWalletsManager() {
 									{isExpanded && (
 										<div className="mt-4 rounded-xl border bg-background p-4">
 											{detailsQuery.isLoading && !isSelectedWallet ? (
-												<p className="text-sm text-muted-foreground">
-													Loading wallet balances...
-												</p>
+												<p className="text-sm text-muted-foreground">Loading wallet balances...</p>
 											) : detailsQuery.isError && !isSelectedWallet ? (
-												<p className="text-sm text-destructive">
-													Unable to load this wallet&apos;s details right now.
-												</p>
+												<p className="text-sm text-destructive">Unable to load this wallet&apos;s details right now.</p>
 											) : (
 												<div className="space-y-4">
 													<div className="grid gap-3 sm:grid-cols-3">
 														<div className="rounded-xl bg-muted/40 p-3">
-															<p className="text-xs text-muted-foreground">
-																Owner Type
-															</p>
-															<p className="mt-1 text-sm font-medium text-foreground">
-																{wallet.owner_type}
-															</p>
+															<p className="text-xs text-muted-foreground">Owner Type</p>
+															<p className="mt-1 text-sm font-medium text-foreground">{wallet.owner_type}</p>
 														</div>
 														<div className="rounded-xl bg-muted/40 p-3">
-															<p className="text-xs text-muted-foreground">
-																Wallet ID
-															</p>
-															<p className="mt-1 text-sm font-medium text-foreground">
-																{maskAddress(wallet.id)}
-															</p>
+															<p className="text-xs text-muted-foreground">Wallet ID</p>
+															<p className="mt-1 text-sm font-medium text-foreground">{maskAddress(wallet.id)}</p>
 														</div>
 														<div className="rounded-xl bg-muted/40 p-3">
-															<p className="text-xs text-muted-foreground">
-																Known Balances
-															</p>
-															<p className="mt-1 text-sm font-medium text-foreground">
-																{formatStatNumber(balances.length)}
-															</p>
+															<p className="text-xs text-muted-foreground">Known Balances</p>
+															<p className="mt-1 text-sm font-medium text-foreground">{formatStatNumber(balances.length)}</p>
 														</div>
 													</div>
 
 													<div className="space-y-2">
-														<p className="text-sm font-medium text-foreground">
-															Balances
-														</p>
+														<p className="text-sm font-medium text-foreground">Balances</p>
 														{balances.length === 0 ? (
-															<p className="text-sm text-muted-foreground">
-																No balances were returned for this wallet yet.
-															</p>
+															<p className="text-sm text-muted-foreground">No balances were returned for this wallet yet.</p>
 														) : (
 															<div className="grid gap-2">
 																{balances.map((balance) => (
@@ -421,9 +328,7 @@ export function CompanyWalletsManager() {
 																		key={`${wallet.id}-${balance.asset}`}
 																		className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2.5"
 																	>
-																		<span className="text-sm text-foreground">
-																			{balance.asset}
-																		</span>
+																		<span className="text-sm text-foreground">{assetCode(balance.asset)}</span>
 																		<span className="text-sm font-medium text-muted-foreground">
 																			{formatStatAmount(balance.amount)}
 																		</span>
@@ -448,16 +353,13 @@ export function CompanyWalletsManager() {
 					<DialogHeader>
 						<DialogTitle>Create Company Wallet</DialogTitle>
 						<DialogDescription>
-							Add an existing Stellar wallet for this company and store its
-							operational metadata.
+							Add an existing Stellar wallet for this company and store its operational metadata.
 						</DialogDescription>
 					</DialogHeader>
 
 					<div className="space-y-4">
 						<div className="space-y-1.5">
-							<label className="text-sm font-medium text-foreground">
-								Wallet Type
-							</label>
+							<label className="text-sm font-medium text-foreground">Wallet Type</label>
 							<Select
 								value={createForm.wallet_type}
 								onValueChange={(value) =>
@@ -481,9 +383,7 @@ export function CompanyWalletsManager() {
 						</div>
 
 						<div className="space-y-1.5">
-							<label className="text-sm font-medium text-foreground">
-								Stellar Address
-							</label>
+							<label className="text-sm font-medium text-foreground">Stellar Address</label>
 							<Input
 								value={createForm.stellar_address}
 								onChange={(event) =>
@@ -493,17 +393,13 @@ export function CompanyWalletsManager() {
 									}))
 								}
 								placeholder={
-									createForm.wallet_type === "EXTERNAL"
-										? "Required for external wallets"
-										: "Optional existing public key"
+									createForm.wallet_type === "EXTERNAL" ? "Required for external wallets" : "Optional existing public key"
 								}
 							/>
 						</div>
 
 						<div className="space-y-1.5">
-							<label className="text-sm font-medium text-foreground">
-								Secret Key
-							</label>
+							<label className="text-sm font-medium text-foreground">Secret Key</label>
 							<Input
 								type="password"
 								value={createForm.secret_key}
@@ -519,11 +415,7 @@ export function CompanyWalletsManager() {
 					</div>
 
 					<DialogFooter>
-						<Button
-							variant="outline"
-							onClick={() => setCreateDialogOpen(false)}
-							disabled={isCreatingWallet}
-						>
+						<Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={isCreatingWallet}>
 							Cancel
 						</Button>
 						<Button onClick={handleCreateWallet} disabled={isCreatingWallet}>
@@ -544,16 +436,12 @@ export function CompanyWalletsManager() {
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Add Trustline</DialogTitle>
-						<DialogDescription>
-							Attach a supported asset to the selected company wallet.
-						</DialogDescription>
+						<DialogDescription>Attach a supported asset to the selected company wallet.</DialogDescription>
 					</DialogHeader>
 
 					<div className="space-y-4">
 						<div className="space-y-1.5">
-							<label className="text-sm font-medium text-foreground">
-								Asset Code
-							</label>
+							<label className="text-sm font-medium text-foreground">Asset Code</label>
 							<Input
 								value={trustlineForm.asset_code}
 								onChange={(event) =>
@@ -567,9 +455,7 @@ export function CompanyWalletsManager() {
 						</div>
 
 						<div className="space-y-1.5">
-							<label className="text-sm font-medium text-foreground">
-								Asset Issuer
-							</label>
+							<label className="text-sm font-medium text-foreground">Asset Issuer</label>
 							<Input
 								value={trustlineForm.asset_issuer}
 								onChange={(event) =>
@@ -584,11 +470,7 @@ export function CompanyWalletsManager() {
 					</div>
 
 					<DialogFooter>
-						<Button
-							variant="outline"
-							onClick={() => setTrustlineDialogOpen(false)}
-							disabled={isAddingTrustline}
-						>
+						<Button variant="outline" onClick={() => setTrustlineDialogOpen(false)} disabled={isAddingTrustline}>
 							Cancel
 						</Button>
 						<Button onClick={handleAddTrustline} disabled={isAddingTrustline}>

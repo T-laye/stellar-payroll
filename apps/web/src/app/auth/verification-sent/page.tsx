@@ -138,7 +138,7 @@ function VerificationSentContent() {
 				</div>
 
 				{isEditingEmail && (
-					<form
+					<form method="post"
 						onSubmit={handleSubmit(handleChangeEmail)}
 						className="space-y-4 rounded-2xl border border-border p-4"
 						noValidate

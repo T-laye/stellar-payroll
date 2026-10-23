@@ -21,18 +21,18 @@ export interface CompanyEmployee {
 	employment_type: "FULL_TIME" | "PART_TIME" | "CONTRACTOR";
 	external_id: string;
 	group_id: string | null;
-	role_slug: string;
 	salary_amount: string;
 	salary_currency: Asset;
-	/** Proposed (docs/PLAN.md §9); falls back to the pay group's cycle. */
+	/** Defaults to the pay group's cycle, else MONTHLY. */
 	pay_frequency?: PayCycle;
 	start_date: string;
 	end_date: string | null;
-	status: "ACTIVE" | "INACTIVE" | "TERMINATED";
+	/** PENDING until a wallet is linked; ACTIVE can't be set without one (409). */
+	status: "PENDING" | "ACTIVE" | "INACTIVE" | "TERMINATED";
 	created_at: string;
 	updated_at: string;
 	wallet?: EmployeeWalletSummary | null;
-	/** Proposed (docs/PLAN.md §9). */
+	/** The portal login: NOT_INVITED until POST …/invite, PENDING until they sign in. */
 	invite_status?: "NOT_INVITED" | "PENDING" | "ACCEPTED";
 }
 
@@ -66,7 +66,6 @@ export interface CreateEmployeePayload {
 	job_title: string;
 	employment_type: CompanyEmployee["employment_type"];
 	group_id?: string;
-	role_slug: string;
 	salary_amount: string;
 	salary_currency: Asset;
 	pay_frequency: PayCycle;

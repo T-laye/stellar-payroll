@@ -160,6 +160,14 @@ To add (in priority order for the final demo):
 - Production domain(s) for the landing site and app (currently path-routed: `/app` → web on Vercel).
 - Email links (verification, reset, invite) must point at the app's auth pages; confirm the backend's frontend URL.
 
+## Update 2026-10-23: backend answered
+
+The backend team's `frontend-integration.md` (repo root) answers §2 and the open questions: decimal money everywhere,
+the review endpoint, approval issues, four-eyes, `CANCELLED`, retries as new transactions, employee `PENDING` + invites,
+employee portal endpoints, schedules, notifications, filters, pagination, idempotency keys, 404s. The frontend and the
+mock now follow it (app still on the mock; `NEXT_PUBLIC_API_SOURCE=live` switches). Sections 1–2 above describe the
+API as it was on 2026-10-20 and are kept for history.
+
 ## 3. Frontend plan
 
 Done (2026-10-21): items 1–6 below are built against the mock (`packages/mock-api`), which now also serves the proposed

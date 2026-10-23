@@ -1,7 +1,7 @@
 import { read, update, type Asset, type MockEmployee, type MockGroup, type MockRole } from "../db";
 import { ALL_PERMISSIONS, effectivePermissions } from "../permissions";
-import { HttpError, companyOf, me, need, ok, route, type Ctx } from "../router";
-import { employeeDto, employeeWallet, employeeWalletDetail, found, required, str, walletSummary } from "../present";
+import { HttpError, NO_CONTENT, companyOf, me, need, ok, paged, route, type Ctx } from "../router";
+import { employeeDto, employeeWallet, employeeWalletDetail, found, required, requireTimestamp, str, walletSummary } from "../present";
 import { inviteToken, wallet } from "../seed";
 import { iso, money, random, uuid } from "../util";
 
@@ -56,7 +56,13 @@ route("GET", "/companies/:id/employees", "user", (ctx) => {
 	const id = companyOf(ctx);
 	need(ctx, "employees:read");
 	const db = read();
-	return ok(db.employees.filter((e) => e.company_id === id).map((e) => employeeDto(db, e)));
+	return paged(
+		ctx,
+		db.employees
+			.filter((e) => e.company_id === id)
+			.sort((a, b) => b.created_at.localeCompare(a.created_at))
+			.map((e) => employeeDto(db, e)),
+	);
 });
 
 route("GET", "/companies/:id/employees/:empId", "user", (ctx) => {
@@ -79,6 +85,7 @@ route("POST", "/companies/:id/employees", "user", (ctx) => {
 	need(ctx, "employees:create");
 	const b = ctx.body;
 	required(b, "first_name", "last_name", "email", "country", "employment_type", "salary_amount", "salary_currency", "start_date");
+	requireTimestamp(b, "start_date");
 	if (read().employees.some((e) => e.company_id === id && e.email.toLowerCase() === str(b.email).toLowerCase())) {
 		throw new HttpError(409, "an employee with this email already exists");
 	}
@@ -110,33 +117,12 @@ route("POST", "/companies/:id/employees", "user", (ctx) => {
 				"MONTHLY") as MockEmployee["pay_frequency"],
 			start_date: str(b.start_date),
 			end_date: null,
-			status: "ACTIVE",
+			// PENDING until a wallet is linked; the portal login waits for POST …/invite.
+			status: "PENDING",
 			created_at: now,
 			updated_at: now,
 		};
 		db.employees.push(e);
-		// The live API emails an invite; here the account waits, inactive, for POST /auth/complete-profile.
-		const role =
-			db.roles.find((r) => r.company_id === id && r.slug === e.role_slug) ??
-			db.roles.find((r) => r.company_id === id && r.slug === "employee")!;
-		const user = {
-			id: uuid(),
-			company_id: id,
-			email: e.email,
-			password: "",
-			first_name: e.first_name,
-			last_name: e.last_name,
-			role_id: role.id,
-			is_active: false,
-			email_verified_at: null,
-			last_login_at: null,
-			invite_token: inviteToken(e.id),
-			wallet_pin: null,
-			created_at: now,
-			updated_at: now,
-		};
-		db.users.push(user);
-		e.user_id = user.id;
 		return employeeDto(db, e);
 	});
 	audit(ctx, "employee.created", "employee", employee.id);
@@ -161,9 +147,11 @@ route("PATCH", "/companies/:id/employees/:empId", "user", (ctx) => {
 			"external_id",
 			"salary_currency",
 			"status",
-			"role_slug",
 			"pay_frequency",
 		] as const;
+		if (str(ctx.body.status) === "ACTIVE" && !employeeWallet(db, e.id)) {
+			throw new HttpError(409, "link a wallet before activating this employee");
+		}
 		for (const key of fields) if (ctx.body[key] !== undefined) Object.assign(e, { [key]: str(ctx.body[key]) });
 		if (ctx.body.salary_amount !== undefined) e.salary_amount = money(Number(ctx.body.salary_amount) || 0);
 		if (ctx.body.group_id !== undefined) e.group_id = str(ctx.body.group_id) || null;
@@ -189,7 +177,7 @@ route("DELETE", "/companies/:id/employees/:empId", "user", (ctx) => {
 		e.updated_at = iso(Date.now());
 	});
 	audit(ctx, "employee.terminated", "employee", ctx.params.empId ?? null);
-	return ok(null, "employee terminated");
+	return NO_CONTENT;
 });
 
 route("POST", "/companies/:id/employees/:empId/wallet", "user", (ctx) => {
@@ -219,6 +207,8 @@ route("POST", "/companies/:id/employees/:empId/wallet", "user", (ctx) => {
 		]);
 		if (address) w.stellar_address = address;
 		db.wallets.push(w);
+		// Linking a wallet activates a pending employee.
+		if (e.status === "PENDING") e.status = "ACTIVE";
 		// Drafts waiting on this wallet pick it up, so the review clears without rebuilding the run.
 		const drafts = new Set(db.runs.filter((r) => r.status === "DRAFT").map((r) => r.id));
 		for (const item of db.lineItems)
@@ -228,6 +218,53 @@ route("POST", "/companies/:id/employees/:empId/wallet", "user", (ctx) => {
 	});
 	audit(ctx, "employee.wallet_linked", "employee", ctx.params.empId ?? null);
 	return ok(result, "wallet linked", 201);
+});
+
+/**
+ * Creates the employee's portal login and emails a set-password link (201). Again while the invite is
+ * pending re-sends it (200); once they have signed in, 409. The link opens /auth/reset-password?token=.
+ */
+route("POST", "/companies/:id/employees/:empId/invite", "user", (ctx) => {
+	const id = companyOf(ctx);
+	need(ctx, "employees:update", "employees:create");
+	const created = update((db) => {
+		const e = found(
+			db.employees.find((x) => x.id === ctx.params.empId && x.company_id === id),
+			"employee",
+		);
+		const existing = db.users.find((u) => u.id === e.user_id);
+		if (existing?.is_active) throw new HttpError(409, "this employee has already signed in");
+		if (existing) {
+			existing.invite_token = inviteToken(e.id);
+			existing.updated_at = iso(Date.now());
+			return false;
+		}
+		const now = iso(Date.now());
+		const role = db.roles.find((r) => r.company_id === id && r.slug === "employee")!;
+		const user = {
+			id: uuid(),
+			company_id: id,
+			email: e.email,
+			password: "",
+			first_name: e.first_name,
+			last_name: e.last_name,
+			role_id: role.id,
+			is_active: false,
+			email_verified_at: null,
+			last_login_at: null,
+			invite_token: inviteToken(e.id),
+			wallet_pin: null,
+			created_at: now,
+			updated_at: now,
+		};
+		db.users.push(user);
+		e.user_id = user.id;
+		return true;
+	});
+	audit(ctx, "employee.invited", "employee", ctx.params.empId ?? null);
+	const db = read();
+	const employee = employeeDto(db, db.employees.find((x) => x.id === ctx.params.empId)!);
+	return created ? ok(employee, "invite sent", 201) : ok(employee, "invite re-sent");
 });
 
 route("GET", "/employees/:empId/wallet", "user", (ctx) => {

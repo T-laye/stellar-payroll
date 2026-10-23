@@ -65,6 +65,7 @@ export function startRun(db: MockDb, run: MockRun, now = Date.now()) {
 			failure_code: null,
 			retry_count: 0,
 			attempts: [],
+			superseded_by: null,
 			created_at: iso(now),
 			submitted_at: null,
 			confirmed_at: null,
@@ -78,29 +79,49 @@ export function startRun(db: MockDb, run: MockRun, now = Date.now()) {
 	notifyRun(db, run, "processing", now);
 }
 
-/** Puts a FAILED payment back in the queue (POST /transactions/{id}/retry). */
+/**
+ * Retries a FAILED payment (POST /transactions/{id}/retry): a new attempt with its own transaction id
+ * and hash; the failed one is kept (its attempts carry over) and drops out of the lists. Returns the
+ * new transaction.
+ */
 export function retryTransaction(db: MockDb, tx: MockTransaction, now = Date.now()) {
 	const destination = employeeWallet(db, tx.employee_id);
-	// The admin may have fixed the cause (linked a wallet) since the failure.
-	tx.to_address = destination?.stellar_address ?? tx.to_address;
-	tx.status = "PENDING";
-	tx.retry_count += 1;
-	tx.error_message = null;
-	tx.failure_code = null;
-	tx.stellar_tx_hash = null;
-	tx.submitted_at = null;
-	tx.next_at = now + SUBMIT_AFTER;
+	const next: MockTransaction = {
+		...structuredClone(tx),
+		id: uuid(),
+		// The admin may have fixed the cause (linked a wallet) since the failure.
+		to_address: destination?.stellar_address ?? tx.to_address,
+		status: "PENDING",
+		retry_count: tx.retry_count + 1,
+		error_message: null,
+		failure_code: null,
+		stellar_tx_hash: null,
+		ledger_sequence: null,
+		fee_amount: null,
+		created_at: iso(now),
+		submitted_at: null,
+		confirmed_at: null,
+		superseded_by: null,
+		next_at: now + SUBMIT_AFTER,
+	};
+	tx.superseded_by = next.id;
+	db.transactions.push(next);
 	const item = db.lineItems.find((i) => i.id === tx.line_item_id);
 	if (item) {
 		item.status = "PENDING";
-		item.wallet_address = tx.to_address;
+		item.wallet_address = next.to_address;
+		item.transaction_id = next.id;
 	}
 	const run = db.runs.find((r) => r.id === tx.payroll_run_id);
 	if (run && run.status === "FAILED") {
 		run.status = "RETRYING";
 		run.updated_at = iso(now);
 	}
+	return next;
 }
+
+/** The payments that count: retried-away attempts are history, not payments. */
+export const livePayments = (db: MockDb) => db.transactions.filter((t) => !t.superseded_by);
 
 function mirror(db: MockDb, tx: MockTransaction) {
 	const item: MockLineItem | undefined = db.lineItems.find((i) => i.id === tx.line_item_id);
@@ -114,7 +135,9 @@ export function settle(db: MockDb, now = Date.now()) {
 	for (const schedule of db.schedules) changed = advanceSchedule(db, schedule, now) || changed;
 
 	for (const run of db.runs) {
-		if (run.status === "APPROVED" && Date.parse(run.scheduled_at) <= now) {
+		// The scheduler only pays runs approved before their pay date; a late approval waits for execute.
+		const approvedInTime = !!run.approved_at && Date.parse(run.approved_at) <= Date.parse(run.scheduled_at);
+		if (run.status === "APPROVED" && approvedInTime && Date.parse(run.scheduled_at) <= now) {
 			startRun(db, run, now);
 			changed = true;
 		}
@@ -128,9 +151,10 @@ export function settle(db: MockDb, now = Date.now()) {
 
 	for (const run of db.runs) {
 		if (run.status !== "PROCESSING" && run.status !== "RETRYING") continue;
-		const txs = db.transactions.filter((t) => t.payroll_run_id === run.id);
+		const txs = livePayments(db).filter((t) => t.payroll_run_id === run.id);
 		if (txs.some((t) => t.status === "PENDING" || t.status === "SUBMITTED")) continue;
 		run.status = txs.every((t) => t.status === "CONFIRMED") ? "COMPLETED" : "FAILED";
+		if (run.status === "COMPLETED") run.completed_at = iso(now);
 		run.updated_at = iso(now);
 		notifyRun(db, run, run.status === "COMPLETED" ? "completed" : "failed", now);
 		changed = true;
@@ -141,8 +165,16 @@ export function settle(db: MockDb, now = Date.now()) {
 		if (run.status !== "DRAFT" && run.status !== "APPROVED") continue;
 		const due = Date.parse(run.scheduled_at);
 		if (due <= now || due - now > APPROACHING) continue;
-		if (db.notifications.some((n) => n.kind === "payroll.approaching" && n.resource_id === run.id)) continue;
+		if (db.notifications.some((n) => n.kind === "schedule.approaching" && n.resource_id === run.id)) continue;
 		notifyRun(db, run, "approaching", now);
+		changed = true;
+	}
+
+	// A pay date that passes without an approved run: tell admins once (payroll.blocked).
+	for (const run of db.runs) {
+		if (run.status !== "DRAFT" || Date.parse(run.scheduled_at) > now) continue;
+		if (db.notifications.some((n) => n.kind === "payroll.blocked" && n.resource_id === run.id)) continue;
+		notifyRun(db, run, "blocked", now);
 		changed = true;
 	}
 
@@ -165,7 +197,7 @@ function step(db: MockDb, tx: MockTransaction) {
 				attempt: tx.retry_count + 1,
 				status: "FAILED",
 				stellar_tx_hash: null,
-				error_message: failure.message,
+				error: failure.message,
 				failure_code: failure.code,
 				at: iso(at),
 			});
@@ -184,7 +216,7 @@ function step(db: MockDb, tx: MockTransaction) {
 			attempt: tx.retry_count + 1,
 			status: "CONFIRMED",
 			stellar_tx_hash: tx.stellar_tx_hash,
-			error_message: null,
+			error: null,
 			failure_code: null,
 			at: iso(at),
 		});
@@ -274,11 +306,12 @@ export function draftRun(db: MockDb, schedule: MockSchedule, now = Date.now()) {
 		approved_by: null,
 		approved_at: null,
 		executed_at: null,
+		completed_at: null,
 		created_at: iso(now),
 		updated_at: iso(now),
 	};
 	run.stellar_memo = `PO-${run.id.slice(0, 8).toUpperCase()}`;
-	for (const employee of db.employees.filter((e) => schedule.employee_ids.includes(e.id) && e.status === "ACTIVE")) {
+	for (const employee of db.employees.filter((e) => schedule.employee_ids.includes(e.id) && (e.status === "ACTIVE" || e.status === "PENDING"))) {
 		db.lineItems.push({
 			id: uuid(),
 			company_id: run.company_id,

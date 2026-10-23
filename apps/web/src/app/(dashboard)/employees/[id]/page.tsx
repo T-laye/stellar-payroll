@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AlertTriangle, History, Pencil, Power, Wallet } from "lucide-react";
+import { AlertTriangle, History, Mail, Pencil, Power, Wallet } from "lucide-react";
 import { Button } from "@repo/ui/button";
 import { toast } from "@repo/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/tabs";
@@ -17,11 +17,12 @@ import { DetailList, SectionCard } from "@/components/section-card";
 import { CardSkeleton, EmptyState, ErrorState, TableSkeleton } from "@/components/states";
 import { EmployeeStatusPill } from "@/components/status-pill";
 import { hasAnyPermission, useAuthStore } from "@/features/auth/store";
-import { useEmployee, useLinkWallet, useSetEmployeeStatus } from "@/features/employees/hooks";
+import { useEmployee, useInviteEmployee, useLinkWallet, useSetEmployeeStatus } from "@/features/employees/hooks";
 import { TransactionsTable } from "@/features/payroll/components/transactions-table";
 import { useGroups, useTransactions } from "@/features/payroll/hooks";
 import { DemoEmailLink } from "@/features/auth/components/demo-mode";
-import { errorMessage } from "@/lib/api/request";
+import { sumAmounts } from "@/lib/decimal";
+import { FULL_PAGE, errorMessage } from "@/lib/api/request";
 import { formatDate, formatFrequency, formatMoney } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { employeePhase } from "@/lib/status";
@@ -36,9 +37,10 @@ function EmployeeProfile() {
 	const canRetry = hasAnyPermission(user, ["payroll:execute"]);
 	const { data: e, isLoading, isError, refetch } = useEmployee(id);
 	const groups = useGroups();
-	const payments = useTransactions({ employee_id: id, page_size: 100 }, canSeePayments);
+	const payments = useTransactions({ employee_id: id, page_size: FULL_PAGE }, canSeePayments);
 	const setStatus = useSetEmployeeStatus();
 	const linkWallet = useLinkWallet(id);
+	const invite = useInviteEmployee(id);
 	const [confirmStatus, setConfirmStatus] = useState(false);
 
 	if (isLoading) {
@@ -65,7 +67,18 @@ function EmployeeProfile() {
 	const list = canSeePayments ? (payments.data?.data ?? []) : [];
 	const paid = list.filter((t) => t.status === "CONFIRMED");
 	const phase = employeePhase(e);
-	const nextStatus = e.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+	// PENDING and ACTIVE people can be deactivated; activating needs a wallet (the API answers 409 without one).
+	const nextStatus = e.status === "INACTIVE" ? "ACTIVE" : "INACTIVE";
+	const inviteState = e.invite_status ?? "NOT_INVITED";
+
+	const sendInvite = () =>
+		invite.mutate(undefined, {
+			onSuccess: () =>
+				toast.success(inviteState === "PENDING" ? "Invite re-sent" : "Invite sent", {
+					description: `${e.first_name} will get an email to set a password and see their payments.`,
+				}),
+			onError: (error) => toast.error(errorMessage(error, "Couldn't send the invite")),
+		});
 
 	const toggleStatus = () =>
 		setStatus.mutate(
@@ -96,8 +109,13 @@ function EmployeeProfile() {
 					e.status !== "TERMINATED" && (
 						<>
 							<Button variant="outline" onClick={() => setConfirmStatus(true)}>
-								<Power /> {e.status === "ACTIVE" ? "Deactivate" : "Activate"}
+								<Power /> {nextStatus === "INACTIVE" ? "Deactivate" : "Activate"}
 							</Button>
+							{inviteState !== "ACCEPTED" && (
+								<Button variant="outline" onClick={sendInvite} disabled={invite.isPending}>
+									<Mail /> {inviteState === "PENDING" ? "Resend invite" : "Send invite"}
+								</Button>
+							)}
 							<Button asChild>
 								<Link href={routes.employees.edit(e.id)}>
 									<Pencil /> Edit
@@ -115,9 +133,7 @@ function EmployeeProfile() {
 				>
 					<AlertTriangle className="size-5 shrink-0 text-warning" />
 					<p className="flex-1 text-foreground">
-						{!e.wallet
-							? "No wallet yet: payroll can't pay this employee until one is added."
-							: "Invite not accepted yet: they can't see their payments until they sign in."}
+						No wallet yet: payroll can&apos;t pay {e.first_name} until one is linked. Linking it makes them active.
 					</p>
 					{!e.wallet && canUpdate && (
 						<div className="flex gap-2">
@@ -141,10 +157,14 @@ function EmployeeProfile() {
 				</div>
 			)}
 
-			{e.invite_status === "PENDING" && (
-				<div className="mb-6">
+			{inviteState === "PENDING" && (
+				<div className="mb-6 space-y-3">
+					<p className="flex items-center gap-2 text-sm text-muted-foreground">
+						<Mail className="size-4" /> Invite sent: {e.first_name} hasn&apos;t set a password yet, so they can&apos;t see their payments.
+					</p>
+					{/* Invites reuse the reset-password link (frontend-integration.md §4). */}
 					<DemoEmailLink
-						href={`${routes.authRoutes.COMPLETE_PROFILE}?token=invite-${e.id.slice(0, 8)}`}
+						href={`${routes.authRoutes.RESET_PASSWORD}?token=invite-${e.id.slice(0, 8)}`}
 						label={`Open ${e.first_name}'s invite as them`}
 					/>
 				</div>
@@ -196,7 +216,7 @@ function EmployeeProfile() {
 										label: "Total received",
 										value: canSeePayments
 											? formatMoney(
-													paid.reduce((s, t) => s + Number(t.amount), 0),
+													sumAmounts(paid.map((t) => t.amount)),
 													e.salary_currency,
 												)
 											: "--",

@@ -23,20 +23,23 @@ export function DemoAccountNote({ onPick }: { onPick: (email: string, password: 
 				Demo mode
 			</p>
 			<p className="mt-1 text-muted-foreground">
-				Everything runs on sample data in your browser. Pick an account (password <strong className="text-foreground">{DEMO_PASSWORD}</strong>):
+				Everything runs on sample data in your browser. Pick an account (password <strong className="text-foreground">{DEMO_PASSWORD}</strong> unless shown):
 			</p>
 			<ul className="mt-3 space-y-2">
 				{DEMO_ACCOUNTS.map((account) => (
 					<li key={account.email}>
 						<button
 							type="button"
-							onClick={() => onPick(account.email, DEMO_PASSWORD)}
+							onClick={() => onPick(account.email, "password" in account ? account.password : DEMO_PASSWORD)}
 							className="w-full cursor-pointer rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/50"
 						>
 							<span className="block font-medium text-foreground">
 								{account.label} · <span className="break-all">{account.email}</span>
 							</span>
-							<span className="block text-xs text-muted-foreground">{account.description}</span>
+							<span className="block text-xs text-muted-foreground">
+								{account.description}
+								{"password" in account && ` Password ${account.password}.`}
+							</span>
 						</button>
 					</li>
 				))}

@@ -9,7 +9,9 @@ import { PersonCell } from "@/components/person";
 import { EmptyState } from "@/components/states";
 import type { CompanyEmployee } from "@/features/employees/types";
 import type { PayrollGroup } from "@/features/payroll/types";
+import { sumAmounts, toInputAmount } from "@/lib/decimal";
 import { formatMoney } from "@/lib/format";
+import { hasWallet } from "@/lib/status";
 
 /**
  * Choose who a payroll pays, and how much. Each row starts at the employee's salary; the amount
@@ -41,14 +43,14 @@ export function EmployeePicker({
 
 	const toggle = (employee: CompanyEmployee, on: boolean) => {
 		const next = { ...selection };
-		if (on) next[employee.id] = employee.salary_amount;
+		if (on) next[employee.id] = toInputAmount(employee.salary_amount);
 		else delete next[employee.id];
 		onChange(next);
 	};
 	const toggleAll = (on: boolean) => {
 		const next = { ...selection };
 		for (const e of visible) {
-			if (on) next[e.id] ??= e.salary_amount;
+			if (on) next[e.id] ??= toInputAmount(e.salary_amount);
 			else delete next[e.id];
 		}
 		onChange(next);
@@ -99,7 +101,7 @@ export function EmployeePicker({
 					<ul className="max-h-[440px] divide-y divide-border overflow-y-auto">
 						{visible.map((e) => {
 							const checked = e.id in selection;
-							const noWallet = !e.wallet;
+							const noWallet = !hasWallet(e);
 							const otherAsset = e.salary_currency !== asset;
 							return (
 								<li
@@ -133,7 +135,7 @@ export function EmployeePicker({
 												step="0.01"
 												inputMode="decimal"
 												disabled={!checked}
-												value={checked ? selection[e.id] : e.salary_amount}
+												value={checked ? selection[e.id] : toInputAmount(e.salary_amount)}
 												onChange={(ev) => onChange({ ...selection, [e.id]: ev.target.value })}
 												aria-label={`Amount for ${e.first_name} ${e.last_name}`}
 												className="h-8 [appearance:textfield] pr-12 text-right tabular-nums [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
@@ -153,8 +155,9 @@ export function EmployeePicker({
 	);
 }
 
+/** The exact total of the picked amounts (decimal strings, never JS number arithmetic). */
 export function selectionTotal(selection: Record<string, string>) {
-	return Object.values(selection).reduce((sum, v) => sum + (Number(v) || 0), 0);
+	return sumAmounts(Object.values(selection));
 }
 
 export const selectionSummary = (selection: Record<string, string>, asset: string) => {

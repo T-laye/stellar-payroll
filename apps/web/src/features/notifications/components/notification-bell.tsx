@@ -13,6 +13,7 @@ import {
 	useMarkAllNotificationsRead,
 	useMarkNotificationRead,
 	useNotifications,
+	useUnreadCount,
 } from "@/features/notifications/hooks";
 import { routes } from "@/lib/routes";
 
@@ -20,10 +21,12 @@ import { routes } from "@/lib/routes";
 export function NotificationBell() {
 	const [open, setOpen] = useState(false);
 	const isAdmin = useAuthStore((state) => isPayrollAdmin(state.user));
-	const { data, isLoading, isError } = useNotifications();
+	const unreadCount = useUnreadCount();
+	// The list loads when the bell opens; the count polls on its own.
+	const { data, isLoading, isError } = useNotifications(false, open);
 	const markRead = useMarkNotificationRead();
 	const markAll = useMarkAllNotificationsRead();
-	const unread = data?.meta?.unread_count ?? 0;
+	const unread = unreadCount.data ?? data?.meta?.unread_count ?? 0;
 	const latest = data?.data.slice(0, 5) ?? [];
 
 	return (

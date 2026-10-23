@@ -11,7 +11,7 @@ import { StatCard } from "@/components/stat-card";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/states";
 import { PaymentStatusPill } from "@/components/status-pill";
 import { useAuthStore } from "@/features/auth/store";
-import { useMyTransactions } from "@/features/me/hooks";
+import { useMyEmployee, useMyPaymentsSummary, useMyTransactions } from "@/features/me/hooks";
 import { PaymentsTable } from "@/features/me/components/payments-table";
 import { formatDate, formatMoney } from "@/lib/format";
 import { routes } from "@/lib/routes";
@@ -26,18 +26,19 @@ function greeting(date = new Date()) {
 export function EmployeeHome() {
 	const user = useAuthStore((state) => state.user);
 	const payments = useMyTransactions();
+	const summary = useMyPaymentsSummary();
+	const me = useMyEmployee();
 	const list = payments.data ?? [];
-	const confirmed = list.filter((t) => t.status === "CONFIRMED");
-	const totals = confirmed.reduce<Record<string, number>>(
-		(acc, t) => ({ ...acc, [t.asset]: (acc[t.asset] ?? 0) + Number(t.amount) }),
-		{},
-	);
-	const assets = Object.keys(totals).sort((a, b) => (totals[b] ?? 0) - (totals[a] ?? 0));
-	const mainAsset = assets[0] ?? "USDC";
-	const latest = list[0];
+	// Totals per asset come from the API (no client-side money arithmetic); the largest leads.
+	const totals = [...(summary.data?.total_received ?? [])].sort((a, b) => Number(b.amount) - Number(a.amount));
+	const main = totals[0];
+	const received = totals.reduce((n, t) => n + (t.count ?? 0), 0);
+	const latest = summary.data?.latest_payment ?? list[0];
+	const currentStatus = summary.data?.current_status ?? latest?.status;
 	const inFlight = list.find((t) => t.status === "PENDING" || t.status === "SUBMITTED");
-	// The address payroll last paid; balances sit behind the wallet PIN on the profile page.
-	const walletAddress = list.find((t) => t.to_address)?.to_address;
+	// The wallet on the employee record; balances sit behind the wallet PIN on the profile page.
+	const walletAddress = me.data?.wallet_address || list.find((t) => t.to_address)?.to_address;
+	const loadingCards = summary.isLoading && payments.isLoading;
 
 	return (
 		<>
@@ -54,13 +55,13 @@ export function EmployeeHome() {
 							index={0}
 							label="Total Payments Received"
 							icon={WalletCards}
-							loading={payments.isLoading}
-							value={formatMoney(totals[mainAsset] ?? 0, mainAsset)}
-							hint={`${confirmed.length} payment${confirmed.length === 1 ? "" : "s"}${
-								assets.length > 1
-									? ` · + ${assets
+							loading={loadingCards}
+							value={formatMoney(main?.amount ?? 0, main?.asset ?? me.data?.payment_asset ?? "USDC")}
+							hint={`${received} payment${received === 1 ? "" : "s"}${
+								totals.length > 1
+									? ` · + ${totals
 											.slice(1)
-											.map((a) => formatMoney(totals[a], a))
+											.map((t) => formatMoney(t.amount, t.asset))
 											.join(", ")}`
 									: ""
 							}`}
@@ -70,7 +71,7 @@ export function EmployeeHome() {
 							label="Latest Payment"
 							icon={CalendarCheck}
 							tone="info"
-							loading={payments.isLoading}
+							loading={loadingCards}
 							value={latest ? formatMoney(latest.amount, latest.asset) : "--"}
 							hint={latest ? formatDate(latest.confirmed_at ?? latest.created_at) : "No payments yet"}
 							href={latest ? routes.me.payment(latest.id) : undefined}
@@ -79,10 +80,10 @@ export function EmployeeHome() {
 							index={2}
 							label="Current Status"
 							icon={History}
-							tone={latest ? paymentStatus(latest.status).tone : "neutral"}
-							loading={payments.isLoading}
-							value={latest ? paymentStatus(latest.status).label : "--"}
-							hint={latest ? paymentStatus(latest.status).description : undefined}
+							tone={currentStatus ? paymentStatus(currentStatus).tone : "neutral"}
+							loading={loadingCards}
+							value={currentStatus ? paymentStatus(currentStatus).label : "--"}
+							hint={currentStatus ? paymentStatus(currentStatus).description : undefined}
 						/>
 					</div>
 

@@ -18,7 +18,8 @@ import { useCreateEmployee, useLinkWallet, useUpdateEmployee } from "@/features/
 import { EmployeeSchema, splitName, type EmployeeFormData } from "@/features/employees/schema";
 import type { CompanyEmployee } from "@/features/employees/types";
 import { useGroups } from "@/features/payroll/hooks";
-import { errorMessage } from "@/lib/api/request";
+import { errorMessage, newIdempotencyKey } from "@/lib/api/request";
+import { toInputAmount } from "@/lib/decimal";
 import { countries } from "@/lib/constants";
 import { toDateInput } from "@/lib/format";
 import { routes } from "@/lib/routes";
@@ -38,7 +39,10 @@ export function EmployeeForm({ employee }: { employee?: CompanyEmployee }) {
 	const update = useUpdateEmployee(employee?.id ?? "");
 	const linkWallet = useLinkWallet(employee?.id ?? "");
 	const [custodial, setCustodial] = useState(false);
+	const [invite, setInvite] = useState(true);
 	const [moreOpen, setMoreOpen] = useState(!editing);
+	// Made when the form opens (again after a failure), so a double submit can't add the person twice.
+	const [createKey, setCreateKey] = useState(newIdempotencyKey);
 	const now = useMountTime();
 
 	const form = useForm<EmployeeFormData>({
@@ -51,9 +55,9 @@ export function EmployeeForm({ employee }: { employee?: CompanyEmployee }) {
 			employment_type: employee?.employment_type ?? "FULL_TIME",
 			country: employee?.country ?? "",
 			phone: employee?.phone ?? "",
-			start_date: employee?.start_date ?? toDateInput(now),
+			start_date: employee?.start_date?.slice(0, 10) ?? toDateInput(now),
 			wallet_address: employee?.wallet?.stellar_address ?? "",
-			salary_amount: employee?.salary_amount ?? "",
+			salary_amount: employee ? toInputAmount(employee.salary_amount) : "",
 			salary_currency: employee?.salary_currency ?? "USDC",
 			pay_frequency: employee?.pay_frequency ?? "MONTHLY",
 			group_id: employee?.group_id ?? "",
@@ -91,15 +95,21 @@ export function EmployeeForm({ employee }: { employee?: CompanyEmployee }) {
 						...shared,
 						email: values.email,
 						country: values.country,
-						start_date: values.start_date,
-						role_slug: "employee",
+						// The API takes RFC 3339; the date input gives YYYY-MM-DD.
+						start_date: `${values.start_date}T00:00:00Z`,
 					},
 					walletAddress: address,
+					custodial: !address && custodial,
+					invite,
+					key: createKey,
 				});
-				toast.success(`${first_name} ${last_name} added`, { description: "They'll get an email invite to see their payments." });
+				toast.success(`${first_name} ${last_name} added`, {
+					description: invite ? "They'll get an email to set their password and see their payments." : undefined,
+				});
 				router.push(routes.employees.detail(created.id));
 			}
 		} catch (error) {
+			if (!editing) setCreateKey(newIdempotencyKey());
 			toast.error(errorMessage(error, "Couldn't save this employee"));
 		}
 	};
@@ -168,7 +178,7 @@ export function EmployeeForm({ employee }: { employee?: CompanyEmployee }) {
 							/>
 						</div>
 					</FormField>
-					{editing && !employee.wallet && (
+					{(!editing || !employee.wallet) && (
 						<label className="flex items-center justify-between gap-4 rounded-lg border border-border p-3 text-sm">
 							<span>
 								<span className="block font-medium">Create a PayOrbit wallet instead</span>
@@ -334,6 +344,18 @@ export function EmployeeForm({ employee }: { employee?: CompanyEmployee }) {
 					</div>
 				)}
 			</SectionCard>
+
+			{!editing && (
+				<label className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 text-sm shadow-xs">
+					<span>
+						<span className="block font-medium">Invite to the employee portal</span>
+						<span className="block text-muted-foreground">
+							Emails them a link to set a password and see their payments. You can send it later from their profile.
+						</span>
+					</span>
+					<Switch checked={invite} onCheckedChange={setInvite} aria-label="Invite to the employee portal" />
+				</label>
+			)}
 
 			<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 				<Button asChild variant="outline">

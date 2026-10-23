@@ -16,20 +16,22 @@ import { Stepper } from "@/components/stepper";
 import { hasAnyPermission, useAuthStore } from "@/features/auth/store";
 import { useEmployees } from "@/features/employees/hooks";
 import { EmployeePicker, selectionTotal } from "@/features/payroll/components/employee-picker";
-import { PayrollReview, isIncomplete } from "@/features/payroll/components/payroll-review";
+import { PayrollReview } from "@/features/payroll/components/payroll-review";
+import { toastPayrollError } from "@/features/payroll/components/run-actions";
 import { RunProgress } from "@/features/payroll/components/run-progress";
 import {
 	useApproveRun,
 	useCreateRun,
 	useGroups,
-	useLineItems,
+	useRunReview,
 	usePayNow,
 	useRun,
 	useSyncLineItems,
 	useUpdateRun,
 } from "@/features/payroll/hooks";
 import type { Asset } from "@/features/payroll/types";
-import { errorMessage } from "@/lib/api/request";
+import { errorMessage, newIdempotencyKey } from "@/lib/api/request";
+import { isPositiveAmount, toInputAmount } from "@/lib/decimal";
 import { formatDateTime, formatMoney, toDateInput } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { useMountTime } from "@/lib/use-now";
@@ -80,24 +82,28 @@ export function CreatePayrollWizard() {
 	const [runId, setRunId] = useState<string | null>(null);
 	const [outcome, setOutcome] = useState<Outcome>(canApprove && canExecute ? "pay" : canApprove ? "schedule" : "draft");
 	const [finished, setFinished] = useState<Outcome | null>(null);
+	// Made when the wizard opens (and again after a failure), so a double click can't create two runs or pay twice.
+	const [createKey, setCreateKey] = useState(newIdempotencyKey);
+	const [confirmKey, setConfirmKey] = useState(newIdempotencyKey);
 
 	const employees = useEmployees();
 	const groups = useGroups();
 	const run = useRun(runId ?? undefined);
-	const items = useLineItems(runId ?? undefined);
+	const review = useRunReview(runId ?? undefined);
 	const createRun = useCreateRun();
 	const syncItems = useSyncLineItems(runId ?? undefined);
 	const updateRun = useUpdateRun(runId ?? "");
 	const approve = useApproveRun();
 	const payNow = usePayNow();
 
-	const payable = (employees.data ?? []).filter((e) => e.status === "ACTIVE");
-	// First visit to the picker: everyone active who is paid in this cycle's asset.
+	// Active and pending people can be picked; pending ones (no wallet yet) are flagged in the review.
+	const payable = (employees.data ?? []).filter((e) => e.status === "ACTIVE" || e.status === "PENDING");
+	// First visit to the picker: everyone payable who is paid in this cycle's asset.
 	const picked =
 		selection ??
-		Object.fromEntries(payable.filter((e) => e.salary_currency === details.currency).map((e) => [e.id, e.salary_amount]));
+		Object.fromEntries(payable.filter((e) => e.salary_currency === details.currency).map((e) => [e.id, toInputAmount(e.salary_amount)]));
 	const busy = createRun.isPending || syncItems.isPending || updateRun.isPending || approve.isPending || payNow.isPending;
-	const incomplete = (items.data ?? []).filter(isIncomplete).length;
+	const incomplete = review.data ? review.data.issues.length + (review.data.employee_count ? 0 : 1) : 0;
 
 	const validateDetails = () => {
 		const next: Record<string, string> = {};
@@ -113,7 +119,7 @@ export function CreatePayrollWizard() {
 	const toReview = async () => {
 		const chosen = Object.entries(picked);
 		if (chosen.length === 0) return toast.error("Select at least one employee");
-		const bad = chosen.find(([, amount]) => !(Number(amount) > 0));
+		const bad = chosen.find(([, amount]) => !isPositiveAmount(amount));
 		if (bad) return toast.error("Every selected employee needs an amount greater than zero");
 		const lineItems = chosen.map(([employee_id, amount]) => ({ employee_id, amount }));
 		try {
@@ -122,12 +128,14 @@ export function CreatePayrollWizard() {
 					run: {
 						name: details.name.trim(),
 						currency: details.currency,
-						period_start: details.period_start,
-						period_end: details.period_end,
+						// RFC 3339 for the API: the period runs from the first day's start to the last day's end.
+						period_start: `${details.period_start}T00:00:00Z`,
+						period_end: `${details.period_end}T23:59:59Z`,
 						scheduled_at: payDateToIso(details.pay_date),
 						notes: details.notes.trim() || undefined,
 					},
 					items: lineItems,
+					key: createKey,
 				});
 				setRunId(created.id);
 			} else {
@@ -140,6 +148,7 @@ export function CreatePayrollWizard() {
 			}
 			setStep(2);
 		} catch (error) {
+			setCreateKey(newIdempotencyKey());
 			toast.error(errorMessage(error, "Couldn't save the payroll draft"));
 		}
 	};
@@ -149,13 +158,14 @@ export function CreatePayrollWizard() {
 		const allowed = outcome === "draft" || (incomplete === 0 && canApprove && (outcome === "schedule" || canExecute));
 		if (!allowed) return toast.error("Choose one of the available options");
 		try {
-			if (outcome === "pay") await payNow.mutateAsync(run.data);
-			if (outcome === "schedule") await approve.mutateAsync(run.data.id);
+			if (outcome === "pay") await payNow.mutateAsync({ run: run.data, key: confirmKey });
+			if (outcome === "schedule") await approve.mutateAsync({ id: run.data.id, key: confirmKey });
 			// "draft" leaves the run as it is: Pending, and approvers were told when it was created.
 			setFinished(outcome);
 			setStep(4);
 		} catch (error) {
-			toast.error(errorMessage(error, "Couldn't complete this step"));
+			setConfirmKey(newIdempotencyKey());
+			toastPayrollError(error, "Couldn't complete this step");
 		}
 	};
 
@@ -329,7 +339,7 @@ export function CreatePayrollWizard() {
 						)}
 						{footer(
 							() => setStep(1),
-							<Button onClick={() => setStep(3)} disabled={!run.data || items.isLoading}>
+							<Button onClick={() => setStep(3)} disabled={!run.data || review.isLoading}>
 								Next: Confirm <ArrowRight />
 							</Button>,
 						)}
@@ -341,7 +351,7 @@ export function CreatePayrollWizard() {
 						<div className="mb-5 grid gap-3 rounded-xl bg-muted/60 p-4 text-sm sm:grid-cols-3">
 							<div>
 								<p className="text-muted-foreground">Employees</p>
-								<p className="text-lg font-semibold">{items.data?.length ?? run.data.employee_count ?? 0}</p>
+								<p className="text-lg font-semibold">{review.data?.employee_count ?? run.data.employee_count ?? 0}</p>
 							</div>
 							<div>
 								<p className="text-muted-foreground">Total</p>

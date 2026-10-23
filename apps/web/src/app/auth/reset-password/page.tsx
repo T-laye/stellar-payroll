@@ -46,7 +46,7 @@ function ResetPasswordContent() {
 
 		try {
 			await submitReset({ ...data, token, email: email || undefined });
-			toast.success("Password reset successfully.");
+			toast.success("Password set. Sign in with your new password.");
 			router.push(routes.authRoutes.SIGN_IN);
 		} catch (error) {
 			toast.error(
@@ -57,8 +57,8 @@ function ResetPasswordContent() {
 
 	return (
 		<AuthShell
-			title="Reset Password"
-			description="Set a new password for your account."
+			title="Set your password"
+			description="Choose a password for your PayOrbit account. Invited employees use this page to finish setting up."
 			footer={<AuthLegalFooter />}
 		>
 			{!token ? (
@@ -87,7 +87,7 @@ function ResetPasswordContent() {
 					</Button>
 				</div>
 			) : (
-				<form
+				<form method="post"
 					onSubmit={handleSubmit(onSubmit)}
 					className="space-y-5"
 					noValidate

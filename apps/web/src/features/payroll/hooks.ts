@@ -12,6 +12,7 @@ import {
 	getGroups,
 	getLineItems,
 	getRun,
+	getRunReview,
 	getRunTransactions,
 	getRuns,
 	getSchedule,
@@ -19,8 +20,8 @@ import {
 	getTransaction,
 	getTransactions,
 	removeLineItem,
+	retryFailed,
 	retryTransaction,
-	runComplianceCheck,
 	scheduleAction,
 	updateLineItem,
 	updateRun,
@@ -31,17 +32,18 @@ import type {
 	LineItemInput,
 	PayrollRun,
 	SchedulePayload,
+	ScheduleUpdate,
 	Transaction,
 	TransactionFilters,
 } from "@/features/payroll/types";
 
 /**
- * Payroll queries and mutations. Anything that is still settling (a run paying out, a payment
- * waiting on the network) polls until it lands; writes never retry (a retried execution could
- * pay twice) and refresh everything payroll-shaped when they succeed.
+ * Payroll queries and mutations. Anything still settling (a run paying out, a payment waiting on
+ * the network) polls every few seconds until it lands (frontend-integration.md §3: 3–5 s). Writes
+ * never retry and carry the idempotency key their form or dialog made, so a repeat can't pay twice.
  */
 
-const LIVE_POLL = 1500;
+const LIVE_POLL = 3000;
 
 export function useCompanyId() {
 	return useAuthStore((state) => state.user?.company_id ?? null);
@@ -49,15 +51,10 @@ export function useCompanyId() {
 
 /** After any payroll write: runs, payments, stats and notifications may all have moved. */
 export function refreshPayroll(queryClient: QueryClient) {
-	for (const key of ["payroll", "transactions", "stats", "notifications", "me"])
-		queryClient.invalidateQueries({ queryKey: [key] });
+	for (const key of ["payroll", "transactions", "stats", "notifications", "me"]) queryClient.invalidateQueries({ queryKey: [key] });
 }
 
-const isSettling = (run?: PayrollRun) =>
-	!!run &&
-	(run.status === "PROCESSING" ||
-		run.status === "RETRYING" ||
-		(run.status === "APPROVED" && Date.parse(run.scheduled_at) <= Date.now()));
+const isSettling = (run?: PayrollRun) => !!run && (run.status === "PROCESSING" || run.status === "RETRYING");
 
 const hasPendingPayments = (list?: Transaction[]) => !!list?.some((t) => t.status === "PENDING" || t.status === "SUBMITTED");
 
@@ -78,10 +75,11 @@ export function useRuns() {
 		queryFn: getRuns,
 		staleTime: 15_000,
 		select: (response) => response.data,
-		refetchInterval: (query) => (query.state.data?.data.some(isSettling) ? LIVE_POLL * 2 : false),
+		refetchInterval: (query) => (query.state.data?.data.some(isSettling) ? LIVE_POLL : false),
 	});
 }
 
+/** A run carries `employee_count` and `payments`, so while it pays out this one poll drives the progress bar. */
 export function useRun(id?: string) {
 	return useQuery({
 		queryKey: ["payroll", "run", id],
@@ -101,6 +99,16 @@ export function useLineItems(runId?: string) {
 	});
 }
 
+/** The review screen: totals, per-employee issues, network estimate, `ready`. Refreshes after every line-item change. */
+export function useRunReview(runId?: string) {
+	return useQuery({
+		queryKey: ["payroll", "run", runId, "review"],
+		queryFn: () => getRunReview(runId!),
+		enabled: !!runId,
+		select: (response) => response.data,
+	});
+}
+
 export function useRunTransactions(runId?: string, live = false) {
 	return useQuery({
 		queryKey: ["payroll", "run", runId, "transactions"],
@@ -111,24 +119,13 @@ export function useRunTransactions(runId?: string, live = false) {
 	});
 }
 
-export function useComplianceCheck(runId?: string, enabled = true) {
-	return useQuery({
-		// A POST, but it only reads: re-run whenever the line items change.
-		queryKey: ["payroll", "run", runId, "compliance"],
-		queryFn: () => runComplianceCheck(runId!),
-		enabled: !!runId && enabled,
-		select: (response) => response.data,
-		staleTime: 0,
-	});
-}
-
 export function useTransactions(filters: TransactionFilters = {}, enabled = true) {
 	return useQuery({
 		queryKey: ["transactions", filters],
 		queryFn: () => getTransactions(filters),
 		enabled,
 		placeholderData: keepPreviousData,
-		refetchInterval: (query) => (hasPendingPayments(query.state.data?.data) ? LIVE_POLL * 2 : false),
+		refetchInterval: (query) => (hasPendingPayments(query.state.data?.data) ? LIVE_POLL : false),
 	});
 }
 
@@ -144,18 +141,15 @@ export function useTransaction(id?: string) {
 
 // ---- Run mutations ----
 
+/** Creates the draft, then adds its people (the server never copies a group's employees). */
 export function useCreateRun() {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: async ({ run, items }: { run: CreateRunPayload; items: LineItemInput[] }) => {
-			const created = (await createRun(run)).data;
-			// A run created for a group may already hold that group's people (docs/PLAN.md, open question).
-			const existing = (await getLineItems(created.id)).data;
-			const have = new Set(existing.map((i) => i.employee_id));
-			const wanted = new Set(items.map((i) => i.employee_id));
-			await Promise.all(existing.filter((i) => !wanted.has(i.employee_id)).map((i) => removeLineItem(created.id, i.id)));
-			const toAdd = items.filter((i) => !have.has(i.employee_id));
-			for (let start = 0; start < toAdd.length; start += 100) await addLineItems(created.id, toAdd.slice(start, start + 100));
+		mutationFn: async ({ run, items, key }: { run: CreateRunPayload; items: LineItemInput[]; key: string }) => {
+			const created = (await createRun(run, key)).data;
+			for (let start = 0; start < items.length; start += 100) {
+				await addLineItems(created.id, items.slice(start, start + 100), `${key}:items:${start}`);
+			}
 			return created;
 		},
 		onSuccess: () => refreshPayroll(queryClient),
@@ -173,12 +167,10 @@ export function useSyncLineItems(runId?: string) {
 			await Promise.all(existing.filter((i) => !wanted.has(i.employee_id)).map((i) => removeLineItem(runId!, i.id)));
 			await Promise.all(
 				existing
-					.filter(
-						(i) =>
-							wanted.has(i.employee_id) &&
-							wanted.get(i.employee_id)!.amount &&
-							Number(wanted.get(i.employee_id)!.amount) !== Number(i.amount),
-					)
+					.filter((i) => {
+						const next = wanted.get(i.employee_id)?.amount;
+						return next !== undefined && Number(next) !== Number(i.amount);
+					})
 					.map((i) => updateLineItem(runId!, i.id, { amount: wanted.get(i.employee_id)!.amount })),
 			);
 			const toAdd = items.filter((i) => !have.has(i.employee_id));
@@ -214,16 +206,19 @@ export function useRemoveLineItem(runId: string) {
 
 export function useApproveRun() {
 	const queryClient = useQueryClient();
-	return useMutation({ mutationFn: approveRun, onSuccess: () => refreshPayroll(queryClient) });
+	return useMutation({
+		mutationFn: ({ id, key }: { id: string; key: string }) => approveRun(id, key),
+		onSuccess: () => refreshPayroll(queryClient),
+	});
 }
 
 /** Approve (if still a draft) and start paying now. */
 export function usePayNow() {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: async (run: Pick<PayrollRun, "id" | "status">) => {
-			if (run.status === "DRAFT") await approveRun(run.id);
-			return executeRun(run.id);
+		mutationFn: async ({ run, key }: { run: Pick<PayrollRun, "id" | "status">; key: string }) => {
+			if (run.status === "DRAFT") await approveRun(run.id, key);
+			return executeRun(run.id, key);
 		},
 		onSuccess: () => refreshPayroll(queryClient),
 	});
@@ -231,15 +226,30 @@ export function usePayNow() {
 
 export function useCancelRun() {
 	const queryClient = useQueryClient();
-	return useMutation({ mutationFn: cancelRun, onSuccess: () => refreshPayroll(queryClient) });
+	return useMutation({
+		mutationFn: ({ id, key }: { id: string; key: string }) => cancelRun(id, key),
+		onSuccess: () => refreshPayroll(queryClient),
+	});
 }
 
+/** Retries one failed payment; resolves to the new attempt's transaction. */
 export function useRetryPayment() {
 	const queryClient = useQueryClient();
-	return useMutation({ mutationFn: retryTransaction, onSuccess: () => refreshPayroll(queryClient) });
+	return useMutation({
+		mutationFn: async ({ id, key }: { id: string; key: string }) => (await retryTransaction(id, key)).data,
+		onSuccess: () => refreshPayroll(queryClient),
+	});
 }
 
-// ---- Recurring schedules (proposed) ----
+export function useRetryFailed() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async ({ runId, key }: { runId: string; key: string }) => (await retryFailed(runId, key)).data,
+		onSuccess: () => refreshPayroll(queryClient),
+	});
+}
+
+// ---- Recurring schedules ----
 
 export function useSchedules() {
 	return useQuery({ queryKey: ["payroll", "schedules"], queryFn: getSchedules, select: (response) => response.data });
@@ -257,23 +267,20 @@ export function useSchedule(id?: string) {
 export function useCreateSchedule() {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: (payload: SchedulePayload) => createSchedule(payload),
+		mutationFn: ({ payload, key }: { payload: SchedulePayload; key: string }) => createSchedule(payload, key),
 		onSuccess: () => refreshPayroll(queryClient),
 	});
 }
 
 export function useUpdateSchedule(id: string) {
 	const queryClient = useQueryClient();
-	return useMutation({
-		mutationFn: (payload: Partial<SchedulePayload>) => updateSchedule(id, payload),
-		onSuccess: () => refreshPayroll(queryClient),
-	});
+	return useMutation({ mutationFn: (payload: ScheduleUpdate) => updateSchedule(id, payload), onSuccess: () => refreshPayroll(queryClient) });
 }
 
 export function useScheduleAction() {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: ({ id, action }: { id: string; action: "pause" | "resume" | "cancel" }) => scheduleAction(id, action),
+		mutationFn: ({ id, action, key }: { id: string; action: "pause" | "resume" | "cancel"; key?: string }) => scheduleAction(id, action, key),
 		onSuccess: () => refreshPayroll(queryClient),
 	});
 }

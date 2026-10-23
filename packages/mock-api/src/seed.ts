@@ -29,6 +29,35 @@ export const DEMO_ACCOUNTS = {
 	hr: "hr@payorbit.com",
 	employee: "employee@payorbit.com",
 } as const;
+/**
+ * Test accounts for the team: each owns its own company, as POST /auth/register would make it, with
+ * a funded operational wallet and a monthly USDC pay group but no employees, so the PRD's test tasks
+ * (add an employee, create and pay a payroll, …) start from a clean workspace.
+ */
+export const TEST_ACCOUNTS = [
+	{
+		email: "stellardev002@gmail.com",
+		password: "Test@1234",
+		first: "Stellar",
+		last: "Developer",
+		role: "owner",
+		company: "Stellar Dev Studio",
+		slug: "stellar-dev-studio",
+		country: "Nigeria",
+		timezone: "Africa/Lagos",
+	},
+	{
+		email: "tlayefaah@gmail.com",
+		password: "Test@1234",
+		first: "Tubo",
+		last: "Layefa",
+		role: "admin",
+		company: "Layefa Technologies",
+		slug: "layefa-technologies",
+		country: "Nigeria",
+		timezone: "Africa/Lagos",
+	},
+] as const;
 /** The employee demo account's wallet PIN. */
 export const DEMO_PIN = "1234";
 /**
@@ -352,7 +381,8 @@ export function buildSeed(version: number): MockDb {
 			pay_frequency: groups[p.group].pay_cycle,
 			start_date: day(start),
 			end_date: p.status === "TERMINATED" ? day(now - 45 * DAY) : null,
-			status: p.status ?? "ACTIVE",
+			// PENDING until a wallet is linked.
+			status: p.status ?? (p.wallet ? "ACTIVE" : "PENDING"),
 			created_at: at(start - 5 * DAY),
 			updated_at: at(start - 5 * DAY),
 		};
@@ -436,6 +466,7 @@ export function buildSeed(version: number): MockDb {
 			// Upcoming runs were drafted and approved in the past, never "in 6 days".
 			approved_at: status === "DRAFT" ? null : at(Math.min(payAt - 2 * DAY, now - 3 * 3_600_000)),
 			executed_at: status === "COMPLETED" || status === "FAILED" ? at(payAt) : null,
+			completed_at: status === "COMPLETED" ? at(payAt + 60_000) : null,
 			created_at: at(Math.min(payAt - 4 * DAY, now - DAY)),
 			updated_at: at(Math.min(payAt, now)),
 		};
@@ -445,7 +476,8 @@ export function buildSeed(version: number): MockDb {
 			if (e.group_id !== g.id) return false;
 			if (Date.parse(e.start_date) > periodEnd) return false;
 			if (paid) return !e.end_date || Date.parse(e.end_date) >= periodStart;
-			return e.status === "ACTIVE";
+			// Unpaid runs carry active and pending people; pending ones (no wallet) show up in the review.
+			return e.status === "ACTIVE" || e.status === "PENDING";
 		});
 		let total = 0;
 		people.forEach((e, i) => {
@@ -485,6 +517,7 @@ export function buildSeed(version: number): MockDb {
 				failure_code: failed ? "NETWORK_ERROR" : null,
 				retry_count: 0,
 				attempts: [],
+				superseded_by: null,
 				created_at: at(payAt + i * 1000),
 				submitted_at: at(payAt + i * 1000 + 2000),
 				confirmed_at: failed ? null : at(payAt + i * 1000 + 7000),
@@ -494,7 +527,7 @@ export function buildSeed(version: number): MockDb {
 				attempt: 1,
 				status: failed ? "FAILED" : "CONFIRMED",
 				stellar_tx_hash: tx.stellar_tx_hash,
-				error_message: tx.error_message,
+				error: tx.error_message,
 				failure_code: tx.failure_code,
 				at: tx.confirmed_at ?? tx.submitted_at ?? tx.created_at,
 			});
@@ -594,7 +627,7 @@ export function buildSeed(version: number): MockDb {
 		people: string[] = [],
 	) => {
 		const members = g
-			? db.employees.filter((e) => e.group_id === g.id && e.status === "ACTIVE")
+			? db.employees.filter((e) => e.group_id === g.id && (e.status === "ACTIVE" || e.status === "PENDING"))
 			: db.employees.filter((e) => people.includes(e.first_name));
 		const s: MockSchedule = {
 			id: id(),
@@ -672,7 +705,7 @@ export function buildSeed(version: number): MockDb {
 		told(
 			[amaraUser.id],
 			Date.parse(t.confirmed_at!),
-			"payment.completed",
+			"employee.payment_completed",
 			"Payment received",
 			`Your payment of ${fmt(t.amount, t.asset)} has been received.`,
 			"success",
@@ -722,7 +755,7 @@ export function buildSeed(version: number): MockDb {
 	told(
 		admins,
 		Date.parse(coreDraft.created_at),
-		"payroll.review",
+		"payroll.ready_for_review",
 		"Payroll ready for review",
 		`${coreDraft.name} (${fmt(coreDraft.total_amount, coreDraft.currency)}) is waiting for review and approval.`,
 		"warning",
@@ -734,6 +767,8 @@ export function buildSeed(version: number): MockDb {
 
 	for (const e of db.employees) audit("employee.created", "employee", e.id, Date.parse(e.created_at), hr.id);
 	audit("wallet.created", "wallet", operational.id, Date.parse(created));
+	for (const t of TEST_ACCOUNTS) seedTestCompany(db, t, rand, at(now - DAY), id);
+
 	db.auditLogs.sort((a, b) => b.created_at.localeCompare(a.created_at));
 
 	return db;
@@ -818,3 +853,47 @@ export function credit(w: MockWallet, asset: string, amount: number) {
 }
 
 export { USDC_ISSUER };
+
+/** One test company: owner (signed in with their own password), roles, a funded wallet, a pay group. */
+function seedTestCompany(db: MockDb, t: (typeof TEST_ACCOUNTS)[number], rand: () => number, created: string, id: () => string) {
+	const companyId = id();
+	db.companies.push({
+		id: companyId,
+		name: t.company,
+		slug: t.slug,
+		country: t.country,
+		timezone: t.timezone,
+		default_currency: "USD",
+		email: t.email,
+		phone: null,
+		website: null,
+		logo_url: null,
+		is_active: true,
+		created_at: created,
+		updated_at: created,
+	});
+	db.roles.push(...systemRoles(companyId, created, id));
+	db.users.push({
+		id: id(),
+		company_id: companyId,
+		email: t.email,
+		password: t.password,
+		first_name: t.first,
+		last_name: t.last,
+		role_id: db.roles.find((r) => r.company_id === companyId && r.slug === t.role)!.id,
+		is_active: true,
+		email_verified_at: created,
+		last_login_at: null,
+		invite_token: null,
+		wallet_pin: null,
+		created_at: created,
+		updated_at: created,
+	});
+	db.wallets.push(
+		wallet(companyId, "COMPANY", companyId, "OPERATIONAL", rand, created, id, [
+			{ asset: "XLM", amount: money(10000) },
+			{ asset: "USDC", amount: money(50000) },
+		]),
+	);
+	db.groups.push(group(companyId, "Team — monthly", "Everyone paid at the end of the month.", "USDC", "MONTHLY", t.timezone, created, id));
+}

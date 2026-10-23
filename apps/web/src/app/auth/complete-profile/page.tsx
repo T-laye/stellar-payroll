@@ -55,7 +55,7 @@ function CompleteProfile() {
 			description="Choose a password to see your payments and payment history."
 			footer={<AuthLegalFooter />}
 		>
-			<form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+			<form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
 				<Field label="Password" error={errors.password?.message}>
 					<PasswordInput {...register("password")} autoComplete="new-password" className="h-10" />
 				</Field>

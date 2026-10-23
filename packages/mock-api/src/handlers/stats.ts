@@ -1,6 +1,7 @@
 import { read, type MockDb } from "../db";
 import { companyOf, me, need, ok, route } from "../router";
 import { employeeOfUser } from "../present";
+import { livePayments } from "../engine";
 import { DAY, money } from "../util";
 
 /** /companies/{id}/stats/* and /users/me/stats, computed from the data so they always agree with the lists. */
@@ -17,7 +18,7 @@ function scope(db: MockDb, companyId: string) {
 	return {
 		employees: db.employees.filter((e) => e.company_id === companyId),
 		runs: db.runs.filter((r) => r.company_id === companyId),
-		txs: db.transactions.filter((t) => t.company_id === companyId),
+		txs: livePayments(db).filter((t) => t.company_id === companyId),
 		companyWallets: db.wallets.filter((w) => w.owner_type === "COMPANY" && w.owner_id === companyId),
 		employeeWallets: db.wallets.filter((w) => w.owner_type === "EMPLOYEE" && w.company_id === companyId),
 	};
@@ -28,6 +29,7 @@ const hasWallet = (db: MockDb, employeeId: string) =>
 
 route("GET", "/companies/:id/stats/overview", "user", (ctx) => {
 	const id = companyOf(ctx);
+	need(ctx, "company:read");
 	const db = read();
 	const { employees, runs, txs, companyWallets } = scope(db, id);
 	const confirmed = txs.filter((t) => t.status === "CONFIRMED");
@@ -162,7 +164,7 @@ route("GET", "/companies/:id/stats/compliance", "user", (ctx) => {
 route("GET", "/users/me/stats", "user", (ctx) => {
 	const db = read();
 	const employee = employeeOfUser(db, me(ctx));
-	const txs = employee ? db.transactions.filter((t) => t.employee_id === employee.id) : [];
+	const txs = employee ? livePayments(db).filter((t) => t.employee_id === employee.id) : [];
 	const confirmed = txs
 		.filter((t) => t.status === "CONFIRMED")
 		.sort((a, b) => (b.confirmed_at ?? "").localeCompare(a.confirmed_at ?? ""));

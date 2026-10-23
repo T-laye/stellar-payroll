@@ -6,6 +6,7 @@ import {
 	getEmployee,
 	getEmployees,
 	getEmployeeWallet,
+	inviteEmployee,
 	linkEmployeeWallet,
 	terminateEmployee,
 	updateEmployee,
@@ -57,9 +58,23 @@ export function useCreateEmployee() {
 	const companyId = useCompanyId();
 	const refresh = useRefresh();
 	return useMutation({
-		mutationFn: async ({ payload, walletAddress }: { payload: CreateEmployeePayload; walletAddress?: string }) => {
-			const employee = (await createEmployee(companyId!, payload)).data;
-			if (walletAddress) await linkEmployeeWallet(companyId!, employee.id, walletAddress);
+		mutationFn: async ({
+			payload,
+			walletAddress,
+			custodial,
+			invite,
+			key,
+		}: {
+			payload: CreateEmployeePayload;
+			walletAddress?: string;
+			custodial?: boolean;
+			invite?: boolean;
+			key: string;
+		}) => {
+			const employee = (await createEmployee(companyId!, payload, key)).data;
+			// A wallet activates the employee; an empty body makes an admin-held custodial wallet.
+			if (walletAddress || custodial) await linkEmployeeWallet(companyId!, employee.id, walletAddress);
+			if (invite) await inviteEmployee(companyId!, employee.id);
 			return employee;
 		},
 		onSuccess: refresh,
@@ -93,6 +108,13 @@ export function useTerminateEmployee() {
 	const companyId = useCompanyId();
 	const refresh = useRefresh();
 	return useMutation({ mutationFn: (id: string) => terminateEmployee(companyId!, id), onSuccess: refresh });
+}
+
+/** Sends (or re-sends) the employee's portal invite. */
+export function useInviteEmployee(id: string) {
+	const companyId = useCompanyId();
+	const refresh = useRefresh();
+	return useMutation({ mutationFn: () => inviteEmployee(companyId!, id), onSuccess: refresh });
 }
 
 /** Links an external address, or creates a custodial wallet when no address is given. */

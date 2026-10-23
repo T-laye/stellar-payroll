@@ -1,6 +1,6 @@
 import { read, update, type Asset, type MockDb, type MockSchedule, type PayCycle } from "../db";
 import { DRAFT_LEAD, draftRun, rollForward, upcomingDates } from "../engine";
-import { HttpError, me, need, ok, route, type Ctx } from "../router";
+import { HttpError, me, need, ok, paged, route, type Ctx } from "../router";
 import { found, required, str } from "../present";
 import { iso, money, uuid } from "../util";
 
@@ -20,7 +20,7 @@ const scheduleIn = (db: MockDb, ctx: Ctx) =>
 
 function scheduleDto(db: MockDb, s: MockSchedule, detail = false) {
 	const people = db.employees.filter((e) => s.employee_ids.includes(e.id));
-	const active = people.filter((e) => e.status === "ACTIVE");
+	const active = people.filter((e) => e.status === "ACTIVE" || e.status === "PENDING");
 	const runs = db.runs.filter((r) => r.schedule_id === s.id).sort((a, b) => b.scheduled_at.localeCompare(a.scheduled_at));
 	const upcoming =
 		s.status === "CANCELLED"
@@ -76,12 +76,23 @@ function scheduleDto(db: MockDb, s: MockSchedule, detail = false) {
 	};
 }
 
-function validEmployees(db: MockDb, ctx: Ctx, ids: unknown) {
-	const list = Array.isArray(ids) ? ids.map(String) : [];
-	if (list.length === 0) throw new HttpError(422, "select at least one employee");
-	const companyEmployees = new Set(db.employees.filter((e) => e.company_id === me(ctx).company_id).map((e) => e.id));
-	if (list.some((id) => !companyEmployees.has(id))) throw new HttpError(422, "employee_ids contains an unknown employee");
-	return [...new Set(list)];
+/**
+ * Every member must be active or pending, paid in the schedule's asset, and share one
+ * `pay_frequency` (400 otherwise).
+ */
+function validEmployees(db: MockDb, ctx: Ctx, ids: unknown, asset: string) {
+	const list = [...new Set(Array.isArray(ids) ? ids.map(String) : [])];
+	if (list.length === 0) throw new HttpError(400, "select at least one employee");
+	const people = list.map((id) => db.employees.find((e) => e.id === id && e.company_id === me(ctx).company_id));
+	if (people.some((e) => !e)) throw new HttpError(400, "employee_ids contains an unknown employee");
+	const members = people as NonNullable<(typeof people)[number]>[];
+	const name = (e: (typeof members)[number]) => `${e.first_name} ${e.last_name}`;
+	const inactive = members.filter((e) => e.status !== "ACTIVE" && e.status !== "PENDING");
+	if (inactive.length) throw new HttpError(400, `not active: ${inactive.map(name).join(", ")}`);
+	const otherAsset = members.filter((e) => e.salary_currency !== asset);
+	if (otherAsset.length) throw new HttpError(400, `not paid in ${asset}: ${otherAsset.map(name).join(", ")}`);
+	if (new Set(members.map((e) => e.pay_frequency)).size > 1) throw new HttpError(400, "every member must have the same pay frequency");
+	return list;
 }
 
 function validNextDate(value: unknown) {
@@ -95,7 +106,8 @@ route("GET", "/payroll/schedules", "user", (ctx) => {
 	need(ctx, "payroll:read");
 	const db = read();
 	const order = { ACTIVE: 0, PAUSED: 1, CANCELLED: 2 };
-	return ok(
+	return paged(
+		ctx,
 		db.schedules
 			.filter((s) => s.company_id === me(ctx).company_id)
 			.sort((a, b) => order[a.status] - order[b.status] || a.next_run_at.localeCompare(b.next_run_at))
@@ -123,7 +135,7 @@ route("POST", "/payroll/schedules", "user", (ctx) => {
 			name: str(ctx.body.name),
 			frequency,
 			asset: (str(ctx.body.asset) === "XLM" ? "XLM" : "USDC") as Asset,
-			employee_ids: validEmployees(db, ctx, ctx.body.employee_ids),
+			employee_ids: validEmployees(db, ctx, ctx.body.employee_ids, str(ctx.body.asset) === "XLM" ? "XLM" : "USDC"),
 			next_run_at: iso(next),
 			status: "ACTIVE",
 			last_drafted_for: null,
@@ -144,15 +156,9 @@ route("PATCH", "/payroll/schedules/:id", "user", (ctx) => {
 	const result = update((db) => {
 		const s = scheduleIn(db, ctx);
 		if (s.status === "CANCELLED") throw new HttpError(409, "a cancelled schedule can't be changed");
+		// PATCH renames or replaces the employees; frequency, asset and dates are fixed once created.
 		if (ctx.body.name !== undefined) s.name = str(ctx.body.name) || s.name;
-		if (ctx.body.frequency !== undefined) {
-			const frequency = str(ctx.body.frequency) as PayCycle;
-			if (!FREQUENCIES.includes(frequency)) throw new HttpError(422, "frequency must be WEEKLY, BIWEEKLY or MONTHLY");
-			s.frequency = frequency;
-		}
-		if (ctx.body.asset !== undefined) s.asset = str(ctx.body.asset) === "XLM" ? "XLM" : "USDC";
-		if (ctx.body.employee_ids !== undefined) s.employee_ids = validEmployees(db, ctx, ctx.body.employee_ids);
-		if (ctx.body.next_run_at !== undefined) s.next_run_at = iso(validNextDate(ctx.body.next_run_at));
+		if (ctx.body.employee_ids !== undefined) s.employee_ids = validEmployees(db, ctx, ctx.body.employee_ids, s.asset);
 		s.updated_at = iso(Date.now());
 		return scheduleDto(db, s, true);
 	});
@@ -178,6 +184,8 @@ const transition = (action: "pause" | "resume" | "cancel") =>
 			} else {
 				if (s.status === "CANCELLED") throw new HttpError(409, "this schedule is already cancelled");
 				s.status = "CANCELLED";
+				// Its not-yet-paid draft goes with it.
+				for (const r of db.runs) if (r.schedule_id === s.id && r.status === "DRAFT") r.status = "CANCELLED";
 			}
 			s.updated_at = iso(now);
 			db.auditLogs.unshift({

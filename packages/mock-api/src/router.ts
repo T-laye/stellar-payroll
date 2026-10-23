@@ -20,9 +20,29 @@ export class HttpError extends Error {
 	constructor(
 		public status: number,
 		message: string,
+		/** Extra detail in the error body's `data` (e.g. the issues blocking an approval). */
+		public data?: unknown,
 	) {
 		super(message);
 	}
+}
+
+/** 204: the adapter answers with no body. */
+export const NO_CONTENT = { statusCode: 204, noContent: true } as const;
+
+/**
+ * `?page=1&page_size=20` (max 200; `limit` is an alias) → `meta: { page, page_size, limit, total, total_pages }`.
+ * `fallback` is the page size when none is asked for.
+ */
+export function paged<T>(ctx: Ctx, list: T[], extra: Record<string, unknown> = {}, fallback = 50, message = "successful") {
+	const page = Math.max(1, Number(ctx.query.get("page")) || 1);
+	const pageSize = Math.min(200, Math.max(1, Number(ctx.query.get("page_size") ?? ctx.query.get("limit")) || fallback));
+	return {
+		statusCode: 200,
+		message,
+		data: list.slice((page - 1) * pageSize, page * pageSize),
+		meta: { page, page_size: pageSize, limit: pageSize, total: list.length, total_pages: Math.max(1, Math.ceil(list.length / pageSize)), ...extra },
+	};
 }
 
 export type Handler = (ctx: Ctx) => unknown;

@@ -16,6 +16,9 @@ export function shortHash(value: string | null | undefined, head = 6, tail = 4) 
 	return value.length <= head + tail + 1 ? value : `${value.slice(0, head)}…${value.slice(-tail)}`;
 }
 
+/** Horizon calls lumens "native"; people know them as XLM. */
+export const assetCode = (asset: string) => (asset === "native" ? "XLM" : asset);
+
 export const isStellarAddress = (value: string) => /^G[A-Z2-7]{55}$/.test(value.trim());
 
 /**
@@ -50,15 +53,15 @@ const FAILURES: Record<FailureKind, FailureInfo> = {
 	wallet: {
 		kind: "wallet",
 		category: "Invalid wallet / payment details",
-		summary: "The employee has no valid Stellar wallet to receive the payment.",
-		action: "Add or correct the employee's wallet address, then retry.",
+		summary: "The destination account doesn't exist on Stellar, or the employee has no wallet.",
+		action: "Fix the employee's wallet address, then retry.",
 		needsEmployeeFix: true,
 	},
 	trustline: {
 		kind: "trustline",
 		category: "Invalid wallet / payment details",
-		summary: "The employee's wallet can't hold this asset yet (no trustline).",
-		action: "Ask the employee to add the asset to their wallet, or pay in XLM, then retry.",
+		summary: "The employee's wallet can't hold this asset yet: it has no trustline for it.",
+		action: "Ask the employee to add a USDC trustline to their wallet, then retry.",
 		needsEmployeeFix: true,
 	},
 	balance: {
@@ -71,8 +74,8 @@ const FAILURES: Record<FailureKind, FailureInfo> = {
 	network: {
 		kind: "network",
 		category: "Network / processing error",
-		summary: "The network didn't confirm the payment in time.",
-		action: "Nothing was sent. Retry the payment.",
+		summary: "A temporary network problem stopped the payment.",
+		action: "This is usually transient. Retry the payment.",
 		needsEmployeeFix: false,
 	},
 	transaction: {
@@ -107,8 +110,13 @@ export function failureInfo(payment: { failure_code?: string | null; error_messa
 	return FAILURES.transaction;
 }
 
-/** The API allows three retries per payment. */
-export const MAX_RETRIES = 3;
+/** Retries are capped at 5 attempts per payment; after that `retryable` turns false. */
+export const MAX_RETRIES = 5;
 
-export const canRetry = (payment: { status: string; retry_count?: number }) =>
-	payment.status === "FAILED" && (payment.retry_count ?? 0) < MAX_RETRIES;
+/** Show Retry only when the API says the payment is retryable (older rows: failed and under the cap). */
+export const canRetry = (payment: { status: string; retryable?: boolean; retry_count?: number }) =>
+	payment.retryable ?? (payment.status === "FAILED" && (payment.retry_count ?? 0) < MAX_RETRIES - 1);
+
+/** The API's explorer link when it sends one, else Stellar Expert (Testnet). */
+export const paymentExplorerUrl = (payment: { explorer_url?: string | null; stellar_tx_hash?: string | null }) =>
+	payment.explorer_url || (payment.stellar_tx_hash ? explorerTxUrl(payment.stellar_tx_hash) : null);

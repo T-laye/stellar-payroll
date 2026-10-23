@@ -80,7 +80,7 @@ export default function ForgotPasswordPage() {
 					</div>
 				</div>
 			) : (
-				<form
+				<form method="post"
 					onSubmit={handleSubmit(onSubmit)}
 					className="space-y-5"
 					noValidate

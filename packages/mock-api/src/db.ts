@@ -9,7 +9,9 @@ import { buildSeed } from "./seed";
 
 export type Asset = "USDC" | "XLM";
 export type TxStatus = "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
-export type RunStatus = "DRAFT" | "APPROVED" | "PROCESSING" | "COMPLETED" | "FAILED" | "RETRYING";
+export type RunStatus = "DRAFT" | "APPROVED" | "PROCESSING" | "COMPLETED" | "FAILED" | "RETRYING" | "CANCELLED";
+/** PENDING until a wallet is linked (frontend-integration.md §2). */
+export type EmployeeStatus = "PENDING" | "ACTIVE" | "INACTIVE" | "TERMINATED";
 export type PayCycle = "WEEKLY" | "BIWEEKLY" | "MONTHLY";
 /** Proposed (docs/PLAN.md §8): why a payment failed, as a code the UI can act on. */
 export type FailureCode = "INVALID_WALLET" | "NO_TRUSTLINE" | "INSUFFICIENT_BALANCE" | "NETWORK_ERROR" | "TRANSACTION_FAILED";
@@ -94,7 +96,7 @@ export interface MockEmployee {
 	pay_frequency: PayCycle;
 	start_date: string;
 	end_date: string | null;
-	status: "ACTIVE" | "INACTIVE" | "TERMINATED";
+	status: EmployeeStatus;
 	created_at: string;
 	updated_at: string;
 }
@@ -155,6 +157,7 @@ export interface MockRun {
 	approved_by: string | null;
 	approved_at: string | null;
 	executed_at: string | null;
+	completed_at: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -191,8 +194,10 @@ export interface MockTransaction {
 	/** Proposed (docs/PLAN.md §8). */
 	failure_code: FailureCode | null;
 	retry_count: number;
-	/** Proposed (docs/PLAN.md §8): every try, so a retry keeps the earlier failure on record. */
+	/** Every try, oldest first, so the failure that triggered a retry stays visible. */
 	attempts: MockAttempt[];
+	/** Engine only: a retry creates a new transaction; the old one points at it and leaves the lists. */
+	superseded_by: string | null;
 	created_at: string;
 	submitted_at: string | null;
 	confirmed_at: string | null;
@@ -204,7 +209,7 @@ export interface MockAttempt {
 	attempt: number;
 	status: "CONFIRMED" | "FAILED";
 	stellar_tx_hash: string | null;
-	error_message: string | null;
+	error: string | null;
 	failure_code: FailureCode | null;
 	at: string;
 }
@@ -235,7 +240,7 @@ export interface MockNotification {
 	kind: string;
 	title: string;
 	body: string;
-	resource_type: "payroll_run" | "transaction" | "schedule" | "employee" | null;
+	resource_type: "payroll_run" | "transaction" | "schedule" | null;
 	resource_id: string | null;
 	tone: "info" | "success" | "warning" | "error";
 	read_at: string | null;
@@ -295,7 +300,7 @@ export interface MockDb {
 }
 
 const KEY = "payorbit-mock-db";
-const VERSION = 3;
+const VERSION = 5;
 
 let memory: MockDb | null = null;
 

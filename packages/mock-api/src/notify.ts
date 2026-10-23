@@ -63,7 +63,7 @@ export function notifyPayment(db: MockDb, tx: MockTransaction, at: number) {
 			tx.company_id,
 			[employee],
 			{
-				kind: "payment.processing",
+				kind: "employee.payment_processing",
 				title: "Payment processing",
 				body: `Your payment of ${amount} is being processed.`,
 				tone: "info",
@@ -77,7 +77,7 @@ export function notifyPayment(db: MockDb, tx: MockTransaction, at: number) {
 			tx.company_id,
 			[employee],
 			{
-				kind: "payment.completed",
+				kind: "employee.payment_completed",
 				title: "Payment received",
 				body: `Your payment of ${amount} has been received.`,
 				tone: "success",
@@ -91,7 +91,7 @@ export function notifyPayment(db: MockDb, tx: MockTransaction, at: number) {
 			tx.company_id,
 			[employee],
 			{
-				kind: "payment.failed",
+				kind: "employee.payment_failed",
 				title: "Payment failed",
 				body: `Your payment of ${amount} didn't go through. Your employer has been notified.`,
 				tone: "error",
@@ -118,7 +118,7 @@ export function notifyPayment(db: MockDb, tx: MockTransaction, at: number) {
 export function notifyRun(
 	db: MockDb,
 	run: MockRun,
-	kind: "processing" | "completed" | "failed" | "review" | "approaching",
+	kind: "processing" | "completed" | "failed" | "review" | "approaching" | "blocked",
 	at: number,
 	exclude?: string,
 ) {
@@ -127,7 +127,7 @@ export function notifyRun(
 	const total = fmt(run.total_amount, run.currency);
 	const drafts: Record<typeof kind, Draft> = {
 		review: {
-			kind: "payroll.review",
+			kind: "payroll.ready_for_review",
 			title: "Payroll ready for review",
 			body: `${runLabel(run)} (${total}) is waiting for review and approval.`,
 			tone: "warning",
@@ -154,8 +154,15 @@ export function notifyRun(
 			tone: "error",
 			...link,
 		},
+		blocked: {
+			kind: "payroll.blocked",
+			title: "Payroll missed its pay date",
+			body: `${runLabel(run)} (${total}) reached its pay date without approval, so nothing was paid. Approve it and pay it now.`,
+			tone: "error",
+			...link,
+		},
 		approaching: {
-			kind: "payroll.approaching",
+			kind: "schedule.approaching",
 			title: "Scheduled payroll approaching",
 			body:
 				run.status === "APPROVED"
@@ -174,7 +181,7 @@ export function notifyRun(
 				run.company_id,
 				[employeeUser(db, item.employee_id)],
 				{
-					kind: "payroll.initiated",
+					kind: "employee.payroll_initiated",
 					title: "Payroll initiated",
 					body: `${runLabel(run)} has started. Your payment of ${fmt(item.amount, item.currency)} is on its way.`,
 					tone: "info",

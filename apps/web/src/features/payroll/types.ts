@@ -1,6 +1,6 @@
 export type Asset = "USDC" | "XLM";
 export type PayCycle = "WEEKLY" | "BIWEEKLY" | "MONTHLY";
-export type RunStatus = "DRAFT" | "APPROVED" | "PROCESSING" | "COMPLETED" | "FAILED" | "RETRYING";
+export type RunStatus = "DRAFT" | "APPROVED" | "PROCESSING" | "COMPLETED" | "FAILED" | "RETRYING" | "CANCELLED";
 export type PaymentStatus = "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
 
 export interface PayrollGroup {
@@ -19,7 +19,7 @@ export interface PayrollGroup {
 export interface PayrollRun {
 	id: string;
 	company_id: string;
-	/** Proposed: the cycle's name. Older runs may not have one (`runName` falls back). */
+	/** May be empty; `runName` derives "October 2026 payroll" from `period_start`. */
 	name?: string;
 	group_id: string;
 	/** Proposed (docs/PLAN.md §6). */
@@ -36,11 +36,11 @@ export interface PayrollRun {
 	approved_by: string | null;
 	approved_at: string | null;
 	executed_at: string | null;
+	completed_at?: string | null;
 	created_at: string;
 	updated_at: string;
-	/** Proposed: how many people the run pays. */
 	employee_count?: number;
-	/** Proposed: how the run's payments stand. */
+	/** How the run's payments stand, so a progress bar needs no second call. */
 	payments?: { confirmed: number; pending: number; failed: number };
 }
 
@@ -64,7 +64,7 @@ export interface PaymentAttempt {
 	attempt: number;
 	status: "CONFIRMED" | "FAILED";
 	stellar_tx_hash: string | null;
-	error_message: string | null;
+	error: string | null;
 	failure_code: string | null;
 	at: string;
 }
@@ -83,16 +83,19 @@ export interface Transaction {
 	stellar_tx_hash: string | null;
 	ledger_sequence: number | null;
 	fee_amount: string | null;
-	error_message: string | null;
-	/** Proposed (docs/PLAN.md §8). */
+	/** Withheld from employees' own view, like `failure_code` and `retryable`. */
+	error_message?: string | null;
 	failure_code?: string | null;
+	/** Show Retry only when true; false after 5 attempts. */
+	retryable?: boolean;
 	retry_count: number;
-	/** Proposed (docs/PLAN.md §8). */
+	/** Detail only: every try, oldest first. */
 	attempts?: PaymentAttempt[];
+	/** Set once CONFIRMED. */
+	explorer_url?: string | null;
 	created_at: string;
 	submitted_at: string | null;
 	confirmed_at: string | null;
-	/** Proposed list conveniences. */
 	employee_name?: string;
 	payroll_run_name?: string;
 }
@@ -132,10 +135,20 @@ export interface TransactionFilters {
 	page_size?: number;
 }
 
-export interface PageMeta {
-	page: number;
-	page_size: number;
-	total: number;
+export type { PageMeta } from "@/lib/api/request";
+
+/** GET /payroll/runs/{id}/review: everything the review screen shows, and whether it can be approved. */
+export interface RunReview {
+	run_id?: string;
+	employee_count: number;
+	total_amount: string;
+	asset: Asset;
+	items: (LineItem & { issue?: string | null })[];
+	estimated_transactions: number;
+	estimated_fee_xlm: string;
+	/** Without `employee_name` the issue is about the run itself (e.g. "Payroll run has no pending payments."). */
+	issues: { line_item_id?: string; employee_id?: string; employee_name?: string; reason: string }[];
+	ready: boolean;
 }
 
 export interface UpcomingCycle {
@@ -173,6 +186,9 @@ export interface PayrollSchedule {
 	}[];
 	runs?: { id: string; name: string; status: RunStatus; scheduled_at: string; total_amount: string; currency: Asset }[];
 }
+
+/** PATCH renames a schedule or replaces its employees. */
+export type ScheduleUpdate = { name?: string; employee_ids?: string[] };
 
 export interface SchedulePayload {
 	name: string;

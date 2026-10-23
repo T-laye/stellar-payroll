@@ -2,6 +2,9 @@ export interface AuthSessionResponse {
 	access_token?: string;
 	pay_token?: string;
 	verify_email_token?: string;
+	/** Live login: the role's name ("Owner") and its permissions. */
+	role?: string;
+	permissions?: string[];
 }
 
 export interface AuthUserResponse {

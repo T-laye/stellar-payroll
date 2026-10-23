@@ -2,8 +2,9 @@
  * One place for every status the app shows: the API's states mapped to the words people see
  * (PRD §4, §5), a tone for colour, and whether the state is still waiting on the network.
  *
- * Runs:     DRAFT → Pending · APPROVED (future) → Scheduled · PROCESSING / RETRYING → Processing ·
- *           COMPLETED → Completed · FAILED → Failed (or Cancelled, if it never started paying).
+ * Runs:     DRAFT → Pending · APPROVED before its pay date → Scheduled (the server pays it then) ·
+ *           APPROVED after its pay date → Approved (waits for Pay now) · PROCESSING / RETRYING → Processing ·
+ *           COMPLETED → Completed · FAILED → Failed · CANCELLED → Cancelled (frontend-integration.md §2).
  * Payments: PENDING → Pending · SUBMITTED → Processing · CONFIRMED → Completed · FAILED → Failed.
  *           Completed only ever comes from CONFIRMED.
  */
@@ -18,12 +19,22 @@ export interface StatusView {
 	description: string;
 }
 
-export type RunPhase = "pending" | "scheduled" | "processing" | "completed" | "failed" | "cancelled";
+export type RunPhase = "pending" | "scheduled" | "awaiting" | "processing" | "completed" | "failed" | "cancelled";
 
 interface RunLike {
 	status: string;
 	scheduled_at?: string | null;
+	approved_at?: string | null;
 	executed_at?: string | null;
+}
+
+/**
+ * The server only pays an APPROVED run by itself when it was approved before its `scheduled_at`;
+ * approved afterwards, it waits for execute.
+ */
+export function paysItself(run: RunLike) {
+	if (!run.scheduled_at) return false;
+	return !run.approved_at || Date.parse(run.approved_at) <= Date.parse(run.scheduled_at);
 }
 
 export function runPhase(run: RunLike, now = Date.now()): RunPhase {
@@ -31,6 +42,7 @@ export function runPhase(run: RunLike, now = Date.now()): RunPhase {
 		case "DRAFT":
 			return "pending";
 		case "APPROVED":
+			if (!paysItself(run)) return "awaiting";
 			return run.scheduled_at && Date.parse(run.scheduled_at) > now ? "scheduled" : "processing";
 		case "PROCESSING":
 		case "RETRYING":
@@ -38,8 +50,9 @@ export function runPhase(run: RunLike, now = Date.now()): RunPhase {
 		case "COMPLETED":
 			return "completed";
 		case "FAILED":
-			// The API marks a cancelled run FAILED; one that never started paying was cancelled.
-			return run.executed_at ? "failed" : "cancelled";
+			return "failed";
+		case "CANCELLED":
+			return "cancelled";
 		default:
 			return "pending";
 	}
@@ -52,6 +65,11 @@ export const RUN_PHASES: Record<RunPhase, StatusView> = {
 		description: "Draft: waiting for review and approval. Nothing is paid until it's approved.",
 	},
 	scheduled: { label: "Scheduled", tone: "brand", description: "Approved. It will be paid automatically at the scheduled time." },
+	awaiting: {
+		label: "Approved",
+		tone: "warning",
+		description: "Approved after its pay date, so it won't pay itself. Pay it now to send the payments.",
+	},
 	processing: { label: "Processing", tone: "info", live: true, description: "Payments are being sent and confirmed." },
 	completed: { label: "Completed", tone: "success", description: "Every payment was confirmed." },
 	failed: { label: "Failed", tone: "danger", description: "One or more payments failed. Review the reasons and retry." },
@@ -73,10 +91,13 @@ export const RUN_FILTERS: { value: "all" | RunPhase; label: string }[] = [
 export type PaymentPhase = "pending" | "processing" | "completed" | "failed";
 
 export function paymentPhase(status: string): PaymentPhase {
+	// The live per-run payments view says PROCESSING / COMPLETED for SUBMITTED / CONFIRMED.
 	switch (status) {
 		case "SUBMITTED":
+		case "PROCESSING":
 			return "processing";
 		case "CONFIRMED":
+		case "COMPLETED":
 			return "completed";
 		case "FAILED":
 			return "failed";
@@ -111,17 +132,33 @@ interface EmployeeLike {
 	invite_status?: string;
 }
 
-/** PRD §9: Pending = active, but not ready to be paid yet (no wallet, or the invite isn't accepted). */
+/**
+ * Whether payroll can reach this employee. The live employee list leaves `wallet` out entirely
+ * (single-employee GETs include it), so a missing field falls back to the status: the API refuses
+ * ACTIVE without a wallet, and PENDING means none yet.
+ */
+export function hasWallet(employee: EmployeeLike) {
+	if (employee.wallet) return true;
+	if (employee.wallet === null) return false;
+	return employee.status !== "PENDING";
+}
+
+/** PRD §9: Active / Pending / Inactive. Pending = no wallet yet; the invite is shown on its own. */
 export function employeePhase(employee: EmployeeLike): EmployeePhase {
 	if (employee.status === "INACTIVE") return "inactive";
 	if (employee.status === "TERMINATED") return "terminated";
-	if (!employee.wallet || employee.invite_status === "PENDING") return "pending";
+	// The API's own PENDING: waiting for a wallet. (ACTIVE always has one; the check covers older data.)
+	if (employee.status === "PENDING" || !hasWallet(employee)) return "pending";
 	return "active";
 }
 
 export const EMPLOYEE_PHASES: Record<EmployeePhase, StatusView> = {
 	active: { label: "Active", tone: "success", description: "Ready to be paid." },
-	pending: { label: "Pending", tone: "warning", description: "Missing a wallet or hasn't accepted the invite yet." },
+	pending: {
+		label: "Pending",
+		tone: "warning",
+		description: "Waiting for a wallet. Payroll can't pay them until one is linked.",
+	},
 	inactive: { label: "Inactive", tone: "neutral", description: "Not included in new payroll." },
 	terminated: { label: "Terminated", tone: "danger", description: "No longer with the company. Payment history is kept." },
 };

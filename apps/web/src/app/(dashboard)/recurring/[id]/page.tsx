@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { CalendarClock, CalendarDays, Coins, Pause, Play, Users, XCircle } from "lucide-react";
+import { CalendarClock, Coins, Pause, Pencil, Play, Users, XCircle } from "lucide-react";
 import { Button } from "@repo/ui/button";
 import { Input } from "@repo/ui/input";
 import { toast } from "@repo/ui/sonner";
@@ -22,11 +22,10 @@ import { hasAnyPermission, useAuthStore } from "@/features/auth/store";
 import { ScheduleNotice } from "@/features/payroll/components/schedule-notice";
 import { useSchedule, useScheduleAction, useUpdateSchedule } from "@/features/payroll/hooks";
 import { errorMessage } from "@/lib/api/request";
-import { formatDate, formatFrequency, formatMoney, formatRelative, toDateInput } from "@/lib/format";
+import { formatDate, formatFrequency, formatMoney, formatRelative } from "@/lib/format";
 import { routes } from "@/lib/routes";
-import { useMountTime } from "@/lib/use-now";
 
-type Dialog = "pause" | "resume" | "cancel" | "date" | null;
+type Dialog = "pause" | "resume" | "cancel" | "rename" | null;
 
 function ScheduleDetails() {
 	const { id } = useParams<{ id: string }>();
@@ -36,8 +35,7 @@ function ScheduleDetails() {
 	const action = useScheduleAction();
 	const update = useUpdateSchedule(id);
 	const [dialog, setDialog] = useState<Dialog>(params.get("cancel") ? "cancel" : null);
-	const [nextDate, setNextDate] = useState("");
-	const now = useMountTime();
+	const [newName, setNewName] = useState("");
 
 	if (isLoading) return <CardSkeleton className="h-64" />;
 	if (isError || !s) {
@@ -75,11 +73,11 @@ function ScheduleDetails() {
 							<Button
 								variant="outline"
 								onClick={() => {
-									setNextDate(s.next_run_at ? toDateInput(new Date(s.next_run_at)) : "");
-									setDialog("date");
+									setNewName(s.name);
+									setDialog("rename");
 								}}
 							>
-								<CalendarDays /> Change next date
+								<Pencil /> Rename
 							</Button>
 							{s.status === "ACTIVE" ? (
 								<Button variant="outline" onClick={() => setDialog("pause")}>
@@ -251,40 +249,36 @@ function ScheduleDetails() {
 				open={dialog === "cancel"}
 				onOpenChange={(open) => !open && close()}
 				title="Cancel this schedule?"
-				description="It stops for good. Past payroll stays in your history; cancel any open draft separately from payroll history."
+				description="It stops for good, and its draft that hasn't been paid is cancelled too. Past payroll stays in your history."
 				confirmLabel="Cancel schedule"
 				tone="destructive"
 				loading={action.isPending}
 				onConfirm={() => doAction("cancel")}
 			/>
 			<ConfirmDialog
-				open={dialog === "date"}
+				open={dialog === "rename"}
 				onOpenChange={(open) => !open && close()}
-				title="Change the next payment date"
-				description="Later cycles follow on from this date."
-				confirmLabel="Save date"
+				title="Rename this schedule"
+				description="The name shows on the schedule and on the drafts it prepares."
+				confirmLabel="Save name"
 				loading={update.isPending}
 				onConfirm={() =>
-					update.mutate(
-						{ next_run_at: new Date(`${nextDate}T09:00:00`).toISOString() },
-						{
-							onSuccess: () => {
-								toast.success("Next payment date updated");
-								close();
-							},
-							onError: (error) => toast.error(errorMessage(error)),
-						},
-					)
+					newName.trim().length < 3
+						? toast.error("Give the schedule a name")
+						: update.mutate(
+								{ name: newName.trim() },
+								{
+									onSuccess: () => {
+										toast.success("Schedule renamed");
+										close();
+									},
+									onError: (error) => toast.error(errorMessage(error)),
+								},
+							)
 				}
 			>
-				<FormField label="Next payment date" htmlFor="next-date">
-					<Input
-						id="next-date"
-						type="date"
-						min={toDateInput(now + 86_400_000)}
-						value={nextDate}
-						onChange={(e) => setNextDate(e.target.value)}
-					/>
+				<FormField label="Schedule name" htmlFor="schedule-name">
+					<Input id="schedule-name" value={newName} onChange={(e) => setNewName(e.target.value)} />
 				</FormField>
 			</ConfirmDialog>
 		</>

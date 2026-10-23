@@ -12,6 +12,21 @@ import "./handlers/index";
 
 const LATENCY: [number, number] = [150, 450];
 
+const DAY_MS = 86_400_000;
+
+/** First responses by method + route + Idempotency-Key (kept for the session, honoured for 24 h). */
+const replays = new Map<string, { status: number; body: unknown; at: number }>();
+
+/** The API's error slugs (frontend-integration.md §1). */
+const SLUGS: Record<number, string> = {
+	400: "bad_request",
+	401: "unauthorized",
+	403: "forbidden",
+	404: "not_found",
+	405: "method_not_allowed",
+	409: "conflict",
+};
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function parseBody(data: unknown): Record<string, unknown> {
@@ -52,15 +67,29 @@ export async function mockAdapter(config: InternalAxiosRequestConfig): Promise<A
 		request: { mock: true },
 	});
 
+	// Idempotency-Key: a repeat on the same route within 24 h gets the first response back.
+	const idempotencyKey = method === "POST" || method === "PATCH" ? headerValue(config, "Idempotency-Key") : undefined;
+	const replayKey = idempotencyKey ? `${method} ${path} ${idempotencyKey}` : null;
+	const replay = replayKey ? replays.get(replayKey) : undefined;
+	if (replay && replay.at > Date.now() - DAY_MS) return respond(replay.status, structuredClone(replay.body));
+
 	try {
 		const result = await dispatch(method, path, query, parseBody(config.data), headerValue(config, "Authorization"));
 		const status = (result as { statusCode?: number })?.statusCode ?? 200;
-		return respond(status, result);
+		const body = (result as { noContent?: boolean })?.noContent ? "" : result;
+		if (replayKey) replays.set(replayKey, { status, body: structuredClone(body), at: Date.now() });
+		return respond(status, body);
 	} catch (error) {
 		const status = error instanceof HttpError ? error.status : 500;
 		const message = error instanceof Error ? error.message : "mock backend error";
 		if (!(error instanceof HttpError)) console.error("[mock-api]", method, path, error);
-		const response = respond(status, { statusCode: status, message, error: status === 422 ? { message } : message });
+		const data = error instanceof HttpError ? error.data : undefined;
+		const response = respond(status, {
+			statusCode: status,
+			message,
+			error: status === 422 ? { message } : (SLUGS[status] ?? "internal_error"),
+			...(data === undefined ? {} : { data }),
+		});
 		throw new AxiosError(
 			message,
 			status >= 500 ? AxiosError.ERR_BAD_RESPONSE : AxiosError.ERR_BAD_REQUEST,

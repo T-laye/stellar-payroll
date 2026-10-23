@@ -18,6 +18,11 @@ import { runName } from "@/features/payroll/utils";
 import { PAYMENT_FILTERS } from "@/lib/status";
 
 const PAGE_SIZE = 20;
+
+/** "2026-10-23" → "2026-10-24" (UTC calendar day). */
+function dayAfter(date: string) {
+	return new Date(Date.parse(`${date}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+}
 const ALL = "all";
 
 /** Filters live in the URL, so dashboard links like `?status=FAILED` land pre-filtered. */
@@ -36,7 +41,12 @@ function Transactions() {
 		page: Number(params.get("page")) || 1,
 	};
 	const [search, setSearch] = useState(filters.q);
-	const { data, isLoading, isError, refetch, isFetching } = useTransactions({ ...filters, page_size: PAGE_SIZE });
+	// The picker's end date is inclusive; the API's `to` is exclusive, so send the day after.
+	const { data, isLoading, isError, refetch, isFetching } = useTransactions({
+		...filters,
+		to: filters.to ? dayAfter(filters.to) : "",
+		page_size: PAGE_SIZE,
+	});
 	const employees = useEmployees();
 	const runs = useRuns();
 	const groups = useGroups();

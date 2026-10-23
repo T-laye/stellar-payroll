@@ -1,18 +1,21 @@
 import { read, update } from "../db";
-import { HttpError, me, ok, route } from "../router";
+import { HttpError, me, ok, paged, route } from "../router";
 
 /**
- * Proposed (docs/PLAN.md §10): the signed-in user's in-app notifications, newest first.
- * `?unread=true` filters; `meta.unread_count` drives the header bell.
+ * The signed-in user's in-app notifications, newest first (frontend-integration.md §3).
+ * `?unread=true&page_size=50`; `meta.unread_count` is always the full unread total.
  */
 
+const mine = (userId: string) => read().notifications.filter((n) => n.user_id === userId);
+
 route("GET", "/notifications", "user", (ctx) => {
-	const mine = read().notifications.filter((n) => n.user_id === me(ctx).id);
-	const unreadOnly = ctx.query.get("unread") === "true";
-	const limit = Math.min(100, Math.max(1, Number(ctx.query.get("limit")) || 50));
-	const list = unreadOnly ? mine.filter((n) => !n.read_at) : mine;
-	return { ...ok(list.slice(0, limit)), meta: { total: list.length, unread_count: mine.filter((n) => !n.read_at).length } };
+	const all = mine(me(ctx).id);
+	const list = ctx.query.get("unread") === "true" ? all.filter((n) => !n.read_at) : all;
+	return paged(ctx, list, { unread_count: all.filter((n) => !n.read_at).length });
 });
+
+/** Cheap enough to poll every 30–60 seconds for the bell. */
+route("GET", "/notifications/unread-count", "user", (ctx) => ok({ unread_count: mine(me(ctx).id).filter((n) => !n.read_at).length }));
 
 route("PATCH", "/notifications/:id/read", "user", (ctx) => {
 	const notification = update((db) => {

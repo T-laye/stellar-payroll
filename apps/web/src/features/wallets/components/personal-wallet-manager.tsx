@@ -25,6 +25,7 @@ import {
 } from "@/features/wallets/hooks";
 import { useWalletStore } from "@/features/wallets/store";
 import { formatMoney, formatStatDate, formatStatNumber } from "@/lib/format";
+import { assetCode } from "@/lib/stellar";
 import { StatCard } from "@/components/stat-card";
 
 function formatDateTime(value: string | null | undefined) {
@@ -339,7 +340,7 @@ export function PersonalWalletManager() {
 									<div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 										{myWallet.balances.map((balance) => (
 											<div key={`${balance.asset}-${balance.amount}`} className="rounded-xl bg-muted/40 p-3">
-												<p className="text-xs text-muted-foreground">{balance.asset}</p>
+												<p className="text-xs text-muted-foreground">{assetCode(balance.asset)}</p>
 												<p className="mt-1 text-lg font-semibold text-foreground">{balance.amount}</p>
 											</div>
 										))}

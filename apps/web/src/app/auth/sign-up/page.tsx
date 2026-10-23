@@ -181,7 +181,7 @@ export default function Page() {
 
 	return (
 		<AuthShell title="Get Started" description="Create your PayOrbit workspace. Free for small teams." footer={<AuthLegalFooter />}>
-							<form
+							<form method="post"
 								onSubmit={handleSubmit(onSubmit)}
 								className="space-y-5"
 								noValidate

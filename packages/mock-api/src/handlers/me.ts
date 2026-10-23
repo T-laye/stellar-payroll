@@ -1,6 +1,7 @@
 import { read, update, type MockPaymentRequest } from "../db";
-import { HttpError, me, ok, route } from "../router";
-import { employeeOfUser, found, required, str, txDto, userDto } from "../present";
+import { HttpError, me, ok, paged, route } from "../router";
+import { employeeOfUser, employeeWallet, found, myTxDto, required, str, userDto } from "../present";
+import { livePayments } from "../engine";
 import { iso, money, uuid } from "../util";
 
 /** /users/me*: the signed-in user's profile, payment requests and payment history. */
@@ -52,17 +53,17 @@ route("POST", "/users/me/payment-requests", "user", (ctx) => {
 	return ok(request, "payment request submitted", 201);
 });
 
-/** Proposed endpoint (docs/PLAN.md §2): the employee's own payments, newest first. */
+/** The signed-in employee's payments, newest first; retried-away attempts are left out. */
 route("GET", "/users/me/transactions", "user", (ctx) => {
 	const db = read();
 	const employee = employeeOfUser(db, me(ctx));
-	if (!employee) return ok([]);
-	return ok(
-		db.transactions
-			.filter((t) => t.employee_id === employee.id)
-			.sort((a, b) => b.created_at.localeCompare(a.created_at))
-			.map((t) => ({ ...txDto(t), payroll_run_name: db.runs.find((r) => r.id === t.payroll_run_id)?.name ?? "" })),
-	);
+	const list = employee
+		? livePayments(db)
+				.filter((t) => t.employee_id === employee.id)
+				.sort((a, b) => b.created_at.localeCompare(a.created_at))
+				.map((t) => myTxDto(db, t))
+		: [];
+	return paged(ctx, list);
 });
 
 route("GET", "/users/me/transactions/:id", "user", (ctx) => {
@@ -72,5 +73,40 @@ route("GET", "/users/me/transactions/:id", "user", (ctx) => {
 		db.transactions.find((t) => t.id === ctx.params.id && t.employee_id === employee?.id),
 		"transaction",
 	);
-	return ok({ ...txDto(tx), payroll_run_name: db.runs.find((r) => r.id === tx.payroll_run_id)?.name ?? "" });
+	return ok(myTxDto(db, tx, { attempts: true }));
+});
+
+/** The employee's own pay record, in the live portal's flat shape (404 for users without one). */
+route("GET", "/users/me/employee", "user", (ctx) => {
+	const db = read();
+	const e = found(employeeOfUser(db, me(ctx)), "employee record");
+	return ok({
+		employee_id: e.id,
+		name: `${e.first_name} ${e.last_name}`,
+		email: e.email,
+		role: e.job_title,
+		status: e.status,
+		salary_amount: e.salary_amount,
+		payment_asset: e.salary_currency,
+		pay_frequency: e.pay_frequency,
+		wallet_address: employeeWallet(db, e.id)?.stellar_address ?? "",
+	});
+});
+
+/** The employee dashboard's cards: totals per asset, the latest payment, and where it stands. */
+route("GET", "/users/me/payments/summary", "user", (ctx) => {
+	const db = read();
+	const employee = employeeOfUser(db, me(ctx));
+	const mine = employee ? livePayments(db).filter((t) => t.employee_id === employee.id) : [];
+	const confirmed = mine.filter((t) => t.status === "CONFIRMED");
+	const assets = [...new Set(confirmed.map((t) => t.asset))];
+	const latest = [...mine].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+	return ok({
+		total_received: assets.map((asset) => {
+			const list = confirmed.filter((t) => t.asset === asset);
+			return { asset, amount: money(list.reduce((sum, t) => sum + Number(t.amount), 0)), count: list.length };
+		}),
+		latest_payment: latest ? myTxDto(db, latest) : null,
+		current_status: latest?.status ?? null,
+	});
 });

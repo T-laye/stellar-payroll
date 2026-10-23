@@ -17,6 +17,7 @@ import { runName, runReference } from "@/features/payroll/utils";
 import { ApiError } from "@/lib/api/client";
 import { formatDate, formatDateTime, formatPeriod } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { useMountTime } from "@/lib/use-now";
 import { runPhase, runStatus } from "@/lib/status";
 
 /** A payroll cycle: the review while it's a draft, then its payments as they settle (PRD §4, §7). */
@@ -28,6 +29,7 @@ function PayrollDetails() {
 	const canRetry = hasAnyPermission(user, ["payroll:execute"]);
 	const { data: run, isLoading, isError, error, refetch } = useRun(id);
 	const groups = useGroups();
+	const now = useMountTime();
 
 	if (isLoading) {
 		return (
@@ -76,7 +78,9 @@ function PayrollDetails() {
 				className={
 					phase === "failed"
 						? "mb-6 flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm"
-						: "mb-6 flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-sm"
+						: phase === "awaiting" || (phase === "pending" && Date.parse(run.scheduled_at) <= now)
+							? "mb-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/8 p-4 text-sm"
+							: "mb-6 flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-sm"
 				}
 			>
 				{phase === "scheduled" ? (
@@ -87,9 +91,13 @@ function PayrollDetails() {
 				<p className="text-muted-foreground">
 					<span className="font-medium text-foreground">{status.label}. </span>
 					{phase === "pending" &&
-						(canApprove
-							? "Review the amounts below, then approve it for its pay date or pay it now."
-							: "An approver needs to review and approve it before anything is paid.")}
+						(Date.parse(run.scheduled_at) <= now
+							? `Its pay date (${formatDateTime(run.scheduled_at)}) passed without approval, so nothing was paid. ${canApprove ? "Approve it and pay it now." : "An approver needs to approve and pay it."}`
+							: canApprove
+								? "Review the amounts below, then approve it for its pay date or pay it now. Approved before its pay date, it is paid automatically then."
+								: "An approver needs to review and approve it before anything is paid.")}
+					{phase === "awaiting" &&
+						`Approved${run.approved_at ? ` on ${formatDateTime(run.approved_at)}` : ""}, after its pay date, so it won't be paid automatically. Use Pay now to send the payments.`}
 					{phase === "scheduled" &&
 						`Approved${run.approved_at ? ` on ${formatDate(run.approved_at)}` : ""}. It will be paid automatically on ${formatDateTime(run.scheduled_at)}.`}
 					{phase === "processing" && "Payments are being sent and confirmed on Stellar. This page updates by itself."}
@@ -111,7 +119,7 @@ function PayrollDetails() {
 				</p>
 			</div>
 
-			{run.status === "DRAFT" || phase === "scheduled" || phase === "cancelled" ? (
+			{run.status === "DRAFT" || phase === "scheduled" || phase === "awaiting" || phase === "cancelled" ? (
 				<PayrollReview run={run} editable={run.status === "DRAFT" && canEdit} />
 			) : (
 				<RunProgress run={run} canRetryPayments={canRetry} />

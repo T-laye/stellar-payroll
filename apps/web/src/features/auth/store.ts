@@ -176,14 +176,20 @@ function buildUser(response: AuthResponse, seed: AuthSeed): User {
 		email: responseUser?.email || seed.email,
 		first_name: getFallbackFirstName(seed, responseUser),
 		last_name: getFallbackLastName(seed, responseUser),
-		permissions: getClaimsPermissions(claims),
-		role_name: toRoleName(responseUser?.role_name, roleSlug),
+		// The live login returns only the session; who you are comes from the token's claims.
+		permissions: getClaimsPermissions(claims).length
+			? getClaimsPermissions(claims)
+			: (responseData?.session?.permissions ?? []),
+		role_name: toRoleName(responseUser?.role_name ?? responseData?.session?.role, roleSlug),
 		company:
 			responseUser?.company_name ||
 			seed.company_name ||
 			responseData?.company_slug ||
 			seed.company_slug,
-		company_id: responseUser?.company_id || responseData?.company_id,
+		company_id:
+			responseUser?.company_id ||
+			responseData?.company_id ||
+			(typeof claims?.company_id === "string" ? claims.company_id : undefined),
 	};
 }
 
@@ -363,3 +369,17 @@ export const useAuthStore = create<AuthState>()(
 		},
 	),
 );
+
+/**
+ * The session is over (a 401 from the API: the pay token is a 30-minute sliding session). Clears it
+ * without calling logout (which would 401 too); ProtectedRoute then sends the user to sign in.
+ */
+export function expireSession() {
+	const state = useAuthStore.getState();
+	if (!state.session && !state.user) return;
+	clearStoredAuthSession();
+	useAuthStore.setState({ ...initialState, _hydrated: true });
+	if (typeof window !== "undefined") {
+		void import("@repo/ui/sonner").then(({ toast }) => toast.info("Your session has ended. Please sign in again."));
+	}
+}

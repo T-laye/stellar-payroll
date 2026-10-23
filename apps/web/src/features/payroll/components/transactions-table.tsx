@@ -13,7 +13,7 @@ import { PersonCell } from "@/components/person";
 import { PaymentStatusPill } from "@/components/status-pill";
 import { useRetryPayment } from "@/features/payroll/hooks";
 import type { Transaction } from "@/features/payroll/types";
-import { errorMessage } from "@/lib/api/request";
+import { errorMessage, newIdempotencyKey } from "@/lib/api/request";
 import { formatDate, formatMoney } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { canRetry, failureInfo, shortHash } from "@/lib/stellar";
@@ -34,7 +34,7 @@ export function TransactionsTable({
 	canRetryPayments?: boolean;
 }) {
 	const retry = useRetryPayment();
-	const [target, setTarget] = useState<Transaction | null>(null);
+	const [target, setTarget] = useState<{ tx: Transaction; key: string } | null>(null);
 	const nameOf = (t: Transaction) =>
 		t.employee_name || (t.employee_id && names?.get(t.employee_id)) || shortHash(t.to_address, 5, 4);
 
@@ -101,7 +101,7 @@ export function TransactionsTable({
 									<TableCell className="hidden pr-5 text-right sm:table-cell">
 										<div className="flex items-center justify-end gap-1">
 											{failure && canRetryPayments && canRetry(t) && (
-												<Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setTarget(t)}>
+												<Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setTarget({ tx: t, key: newIdempotencyKey() })}>
 													<RotateCw className="size-3" /> Retry
 												</Button>
 											)}
@@ -124,20 +124,23 @@ export function TransactionsTable({
 				title="Retry this payment?"
 				description={
 					target
-						? `${formatMoney(target.amount, target.asset)} to ${nameOf(target)} will be sent again. ${failureInfo(target).action}`
+						? `${formatMoney(target.tx.amount, target.tx.asset)} to ${nameOf(target.tx)} will be sent again as a new attempt. ${failureInfo(target.tx).action}`
 						: undefined
 				}
 				confirmLabel="Retry payment"
 				loading={retry.isPending}
 				onConfirm={() =>
 					target &&
-					retry.mutate(target.id, {
-						onSuccess: () => {
-							toast.success("Payment queued for retry");
-							setTarget(null);
+					retry.mutate(
+						{ id: target.tx.id, key: target.key },
+						{
+							onSuccess: () => {
+								toast.success("Payment queued for retry");
+								setTarget(null);
+							},
+							onError: (error) => toast.error(errorMessage(error, "Couldn't retry this payment")),
 						},
-						onError: (error) => toast.error(errorMessage(error, "Couldn't retry this payment")),
-					})
+					)
 				}
 			/>
 		</>
