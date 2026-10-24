@@ -10,19 +10,22 @@ import type { Transaction } from "@/features/payroll/types";
 import { formatDate } from "@/lib/format";
 import { routes } from "@/lib/routes";
 
-/** The employee's payments: date, amount, asset, status, reference. Rows open the payment. */
+/**
+ * The employee's payments: date, amount, asset, status, reference. Rows open the payment. Columns follow
+ * the table's own width, since it sits both in a narrow card (overview) and full-width (payments).
+ */
 export function PaymentsTable({ payments, showCycle }: { payments: Transaction[]; showCycle?: boolean }) {
 	return (
-		<div className="overflow-x-auto">
+		<div className="@container overflow-x-auto">
 			<Table>
 				<TableHeader>
 					<TableRow className="hover:bg-transparent">
 						<TableHead className="pl-5">Date</TableHead>
-						{showCycle && <TableHead className="hidden md:table-cell">Payroll cycle</TableHead>}
+						{showCycle && <TableHead className="hidden @3xl:table-cell">Payroll cycle</TableHead>}
 						<TableHead className="text-right">Amount</TableHead>
 						<TableHead className="hidden sm:table-cell">Asset</TableHead>
 						<TableHead>Status</TableHead>
-						<TableHead className="hidden md:table-cell">Transaction</TableHead>
+						<TableHead className="hidden @xl:table-cell">Transaction</TableHead>
 						<TableHead className="hidden w-10 pr-5 sm:table-cell" />
 					</TableRow>
 				</TableHeader>
@@ -38,7 +41,9 @@ export function PaymentsTable({ payments, showCycle }: { payments: Transaction[]
 								</Link>
 							</TableCell>
 							{showCycle && (
-								<TableCell className="max-w-48 truncate text-muted-foreground">{p.payroll_run_name || "Payroll"}</TableCell>
+								<TableCell className="hidden max-w-48 truncate text-muted-foreground @3xl:table-cell">
+									{p.payroll_run_name || "Payroll"}
+								</TableCell>
 							)}
 							<TableCell className="text-right font-medium">
 								<Money value={p.amount} asset={p.asset} />
@@ -49,7 +54,7 @@ export function PaymentsTable({ payments, showCycle }: { payments: Transaction[]
 							<TableCell>
 								<PaymentStatusPill status={p.status} />
 							</TableCell>
-							<TableCell className="relative z-10 hidden md:table-cell">
+							<TableCell className="relative z-10 hidden @xl:table-cell">
 								<HashValue value={p.stellar_tx_hash} />
 							</TableCell>
 							<TableCell className="hidden pr-5 text-muted-foreground sm:table-cell">

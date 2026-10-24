@@ -2,7 +2,17 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@repo/ui/button";
 
 /** "21–40 of 87" and previous / next, under a paged table. Hidden when everything fits on one page. */
-export function Pager({ page, limit, total, onPage }: { page: number; limit: number; total: number; onPage: (page: number) => void }) {
+export function Pager({
+	page,
+	limit,
+	total,
+	onPage,
+}: {
+	page: number;
+	limit: number;
+	total: number;
+	onPage: (page: number) => void;
+}) {
 	const pages = Math.max(1, Math.ceil(total / limit));
 	if (pages <= 1) return null;
 	return (

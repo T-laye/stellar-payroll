@@ -11,8 +11,7 @@ export function formatStatAmount(value: number | string | null | undefined) {
 		return "--";
 	}
 
-	const numericValue =
-		typeof value === "number" ? value : Number.parseFloat(String(value));
+	const numericValue = typeof value === "number" ? value : Number.parseFloat(String(value));
 
 	if (!Number.isNaN(numericValue) && Number.isFinite(numericValue)) {
 		return new Intl.NumberFormat("en-US", {
@@ -76,9 +75,16 @@ const toNumber = (value: number | string | null | undefined) => {
  * An amount in its asset. USDC is a dollar stablecoin, so it reads as dollars ("$5,200.00");
  * XLM keeps its code ("950.00 XLM"). Pass `withCode` to append "USDC" too.
  */
-export function formatMoney(value: number | string | null | undefined, asset = "USDC", { withCode = false, compact = false } = {}) {
+export function formatMoney(
+	value: number | string | null | undefined,
+	asset = "USDC",
+	{ withCode = false, compact = false } = {},
+) {
 	const n = toNumber(value);
-	const digits = compact && Math.abs(n) >= 1000 ? { notation: "compact" as const, maximumFractionDigits: 1 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+	const digits =
+		compact && Math.abs(n) >= 1000
+			? { notation: "compact" as const, maximumFractionDigits: 1 }
+			: { minimumFractionDigits: 2, maximumFractionDigits: 2 };
 	const number = new Intl.NumberFormat("en-US", digits).format(Math.abs(n));
 	const sign = n < 0 ? "-" : "";
 	if (asset === "USDC" || asset === "USD") return `${sign}$${number}${withCode ? " USDC" : ""}`;
@@ -93,7 +99,9 @@ export function formatCount(value: number | null | undefined) {
 export function formatDate(value: string | number | Date | null | undefined) {
 	if (value == null || value === "") return "--";
 	const date = new Date(value);
-	return Number.isNaN(date.getTime()) ? "--" : date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+	return Number.isNaN(date.getTime())
+		? "--"
+		: date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 /** "Oct 21, 2026, 10:24 AM". */

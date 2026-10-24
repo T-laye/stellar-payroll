@@ -81,7 +81,11 @@ function AuditLogs() {
 				) : isError ? (
 					<ErrorState message={errorMessage(error, "We couldn't load the audit log.")} onRetry={() => refetch()} />
 				) : logs.length === 0 ? (
-					<EmptyState icon={ScrollText} title={filtered ? "No entries match" : "No activity yet"} description={filtered ? "Try other filters." : undefined} />
+					<EmptyState
+						icon={ScrollText}
+						title={filtered ? "No entries match" : "No activity yet"}
+						description={filtered ? "Try other filters." : undefined}
+					/>
 				) : (
 					<AuditTable logs={logs} />
 				)}

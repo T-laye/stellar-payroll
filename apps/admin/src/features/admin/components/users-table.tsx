@@ -11,7 +11,15 @@ import type { PlatformUser } from "@/features/admin/types";
 import { formatDate, formatRelative } from "@/lib/format";
 
 /** People across companies. `adminIds` marks platform admins; the company column hides inside a company page. */
-export function UsersTable({ users, adminIds, showCompany = true }: { users: PlatformUser[]; adminIds?: Set<string>; showCompany?: boolean }) {
+export function UsersTable({
+	users,
+	adminIds,
+	showCompany = true,
+}: {
+	users: PlatformUser[];
+	adminIds?: Set<string>;
+	showCompany?: boolean;
+}) {
 	const companyName = useCompanyNames();
 	return (
 		<div className="overflow-x-auto">
@@ -21,7 +29,7 @@ export function UsersTable({ users, adminIds, showCompany = true }: { users: Pla
 						<TableHead className="pl-5">Name</TableHead>
 						{showCompany && <TableHead className="hidden md:table-cell">Company</TableHead>}
 						<TableHead className="hidden sm:table-cell">Role</TableHead>
-						<TableHead className="hidden lg:table-cell">Last sign-in</TableHead>
+						<TableHead className="hidden xl:table-cell">Last sign-in</TableHead>
 						<TableHead className="hidden xl:table-cell">Joined</TableHead>
 						<TableHead className="pr-5">Status</TableHead>
 					</TableRow>
@@ -43,7 +51,7 @@ export function UsersTable({ users, adminIds, showCompany = true }: { users: Pla
 								</TableCell>
 							)}
 							<TableCell className="hidden text-muted-foreground sm:table-cell">{u.role_name || "--"}</TableCell>
-							<TableCell className="hidden text-muted-foreground lg:table-cell">
+							<TableCell className="hidden text-muted-foreground xl:table-cell">
 								{u.last_login_at ? formatRelative(u.last_login_at) : "Never"}
 							</TableCell>
 							<TableCell className="hidden text-muted-foreground xl:table-cell">{formatDate(u.created_at)}</TableCell>

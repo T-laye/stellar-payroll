@@ -52,7 +52,10 @@ function Companies() {
 
 	return (
 		<>
-			<PageHeader title="Companies" description="Every workspace on PayOrbit. Suspending one signs its people out and stops them signing in." />
+			<PageHeader
+				title="Companies"
+				description="Every workspace on PayOrbit. Suspending one signs its people out and stops them signing in."
+			/>
 			<SectionCard flush>
 				<div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center lg:justify-between">
 					<FilterTabs

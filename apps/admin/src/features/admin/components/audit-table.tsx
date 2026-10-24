@@ -60,8 +60,12 @@ export function AuditTable({ logs, showCompany = true }: { logs: AuditLog[]; sho
 										</Link>
 									</TableCell>
 								)}
-								<TableCell className="hidden font-mono text-xs text-muted-foreground xl:table-cell">{log.ip_address || "--"}</TableCell>
-								<TableCell className="pr-5 text-right whitespace-nowrap text-muted-foreground">{formatDateTime(log.created_at)}</TableCell>
+								<TableCell className="hidden font-mono text-xs text-muted-foreground xl:table-cell">
+									{log.ip_address || "--"}
+								</TableCell>
+								<TableCell className="pr-5 text-right whitespace-nowrap text-muted-foreground">
+									{formatDateTime(log.created_at)}
+								</TableCell>
 							</TableRow>
 						);
 					})}

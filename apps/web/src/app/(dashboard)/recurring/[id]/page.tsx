@@ -135,7 +135,7 @@ function ScheduleDetails() {
 
 				{s.status !== "CANCELLED" && <ScheduleNotice />}
 
-				<div className="grid gap-6 lg:grid-cols-2">
+				<div className="grid gap-6 xl:grid-cols-2">
 					<SectionCard title="Upcoming payroll cycles" flush>
 						{s.upcoming.length === 0 ? (
 							<EmptyState compact icon={CalendarClock} title="No upcoming cycles" description="This schedule was cancelled." />

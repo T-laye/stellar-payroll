@@ -23,13 +23,15 @@ const list = { placeholderData: keepPreviousData, staleTime: 15_000 } as const;
 
 export const useOverview = () => useQuery({ queryKey: ["admin", "overview"], queryFn: getOverview, select: (r) => r.data });
 
-export const useCompanies = (filters: CompanyFilters) => useQuery({ queryKey: ["admin", "companies", filters], queryFn: () => getCompanies(filters), ...list });
+export const useCompanies = (filters: CompanyFilters) =>
+	useQuery({ queryKey: ["admin", "companies", filters], queryFn: () => getCompanies(filters), ...list });
 export const useCompany = (id?: string) =>
 	useQuery({ queryKey: ["admin", "company", id], queryFn: () => getCompany(id!), enabled: !!id, select: (r) => r.data });
 
 export const useUsers = (filters: UserFilters, enabled = true) =>
 	useQuery({ queryKey: ["admin", "users", filters], queryFn: () => getUsers(filters), enabled, ...list });
-export const useUser = (id?: string) => useQuery({ queryKey: ["admin", "user", id], queryFn: () => getUser(id!), enabled: !!id, select: (r) => r.data });
+export const useUser = (id?: string) =>
+	useQuery({ queryKey: ["admin", "user", id], queryFn: () => getUser(id!), enabled: !!id, select: (r) => r.data });
 
 export const useTransactions = (filters: TransactionFilters) =>
 	useQuery({ queryKey: ["admin", "transactions", filters], queryFn: () => getTransactions(filters), ...list, retry: false });
@@ -39,7 +41,8 @@ export const useTransaction = (id?: string) =>
 export const useAuditLogs = (filters: AuditFilters, enabled = true) =>
 	useQuery({ queryKey: ["admin", "audit", filters], queryFn: () => getAuditLogs(filters), enabled, ...list });
 
-export const usePlatformAdmins = () => useQuery({ queryKey: ["admin", "admins"], queryFn: getPlatformAdmins, select: (r) => r.data });
+export const usePlatformAdmins = () =>
+	useQuery({ queryKey: ["admin", "admins"], queryFn: getPlatformAdmins, select: (r) => r.data });
 
 function useRefresh() {
 	const client = useQueryClient();
@@ -64,7 +67,10 @@ export function useSetUserActive() {
 
 export function useGrantPlatformAdmin() {
 	const refresh = useRefresh();
-	return useMutation({ mutationFn: ({ userId, key }: { userId: string; key?: string }) => grantPlatformAdmin(userId, key), onSuccess: refresh });
+	return useMutation({
+		mutationFn: ({ userId, key }: { userId: string; key?: string }) => grantPlatformAdmin(userId, key),
+		onSuccess: refresh,
+	});
 }
 
 export function useRevokePlatformAdmin() {

@@ -11,7 +11,13 @@ import { formatDateTime } from "@/lib/format";
 import { assetCode } from "@/lib/stellar";
 
 /** Payments across companies, newest first. */
-export function TransactionsTable({ transactions, showCompany = true }: { transactions: PlatformTransaction[]; showCompany?: boolean }) {
+export function TransactionsTable({
+	transactions,
+	showCompany = true,
+}: {
+	transactions: PlatformTransaction[];
+	showCompany?: boolean;
+}) {
 	const companyName = useCompanyNames();
 	return (
 		<div className="overflow-x-auto">
@@ -21,7 +27,7 @@ export function TransactionsTable({ transactions, showCompany = true }: { transa
 						<TableHead className="pl-5">Recipient</TableHead>
 						{showCompany && <TableHead className="hidden md:table-cell">Company</TableHead>}
 						<TableHead className="text-right">Amount</TableHead>
-						<TableHead className="hidden lg:table-cell">Transaction</TableHead>
+						<TableHead className="hidden xl:table-cell">Transaction</TableHead>
 						<TableHead className="hidden sm:table-cell">Date</TableHead>
 						<TableHead className="pr-5">Status</TableHead>
 					</TableRow>
@@ -45,10 +51,12 @@ export function TransactionsTable({ transactions, showCompany = true }: { transa
 							<TableCell className="text-right font-medium whitespace-nowrap">
 								<Money value={t.amount} asset={assetCode(t.asset)} withCode />
 							</TableCell>
-							<TableCell className="hidden lg:table-cell">
+							<TableCell className="hidden xl:table-cell">
 								{t.stellar_tx_hash ? <HashValue value={t.stellar_tx_hash} /> : <span className="text-muted-foreground">--</span>}
 							</TableCell>
-							<TableCell className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">{formatDateTime(t.created_at)}</TableCell>
+							<TableCell className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">
+								{formatDateTime(t.created_at)}
+							</TableCell>
 							<TableCell className="pr-5">
 								<PaymentStatusPill status={t.status} />
 							</TableCell>

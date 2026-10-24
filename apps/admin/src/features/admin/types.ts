@@ -66,7 +66,14 @@ export interface PlatformTransaction {
 	failure_code?: string | null;
 	retry_count?: number;
 	attempt?: number;
-	attempts?: { attempt: number; status: string; error?: string | null; failure_code?: string | null; stellar_tx_hash?: string | null; at: string }[];
+	attempts?: {
+		attempt: number;
+		status: string;
+		error?: string | null;
+		failure_code?: string | null;
+		stellar_tx_hash?: string | null;
+		at: string;
+	}[];
 	created_at: string;
 	submitted_at?: string | null;
 	confirmed_at?: string | null;

@@ -79,7 +79,7 @@ function PayrollHistory() {
 				}
 			/>
 			<SectionCard flush>
-				<div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center lg:justify-between">
+				<div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between">
 					<FilterTabs
 						options={RUN_FILTERS}
 						value={filter}
@@ -87,7 +87,7 @@ function PayrollHistory() {
 						counts={counts}
 						label="Filter payroll by status"
 					/>
-					<div className="relative lg:w-64">
+					<div className="relative xl:w-56">
 						<Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
 						<Input
 							value={search}
@@ -140,8 +140,8 @@ function RunsTable({ runs, groups }: { runs: PayrollRun[]; groups?: Parameters<t
 						<TableHead className="hidden text-right sm:table-cell">Employees</TableHead>
 						<TableHead className="text-right">Total amount</TableHead>
 						<TableHead className="hidden md:table-cell">Pay date</TableHead>
-						<TableHead>Status</TableHead>
-						<TableHead className="hidden lg:table-cell">Payments</TableHead>
+						<TableHead className="hidden sm:table-cell">Status</TableHead>
+						<TableHead className="hidden xl:table-cell">Payments</TableHead>
 						<TableHead className="hidden w-10 pr-5 sm:table-cell" />
 					</TableRow>
 				</TableHeader>
@@ -160,6 +160,10 @@ function RunsTable({ runs, groups }: { runs: PayrollRun[]; groups?: Parameters<t
 										{runName(run, groups)}
 									</Link>
 									<span className="block text-xs text-muted-foreground">{formatPeriod(run.period_start, run.period_end)}</span>
+									{/* Phones: the status sits under the name instead of in its own column. */}
+									<span className="mt-1.5 block sm:hidden">
+										<RunStatusPill run={run} />
+									</span>
 								</TableCell>
 								<TableCell className="hidden text-right tabular-nums sm:table-cell">{run.employee_count ?? "—"}</TableCell>
 								<TableCell className="text-right font-medium">
@@ -168,10 +172,10 @@ function RunsTable({ runs, groups }: { runs: PayrollRun[]; groups?: Parameters<t
 								<TableCell className="hidden whitespace-nowrap text-muted-foreground md:table-cell">
 									{formatDate(run.scheduled_at)}
 								</TableCell>
-								<TableCell>
+								<TableCell className="hidden sm:table-cell">
 									<RunStatusPill run={run} />
 								</TableCell>
-								<TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
+								<TableCell className="hidden text-sm text-muted-foreground xl:table-cell">
 									{all > 0 ? (
 										<span className="tabular-nums">
 											<span className="text-success">{p!.confirmed} paid</span>

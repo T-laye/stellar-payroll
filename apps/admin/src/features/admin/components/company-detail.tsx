@@ -14,7 +14,14 @@ import { TonePill } from "@/components/status-pill";
 import { AuditTable } from "@/features/admin/components/audit-table";
 import { TransactionsTable } from "@/features/admin/components/transactions-table";
 import { UsersTable } from "@/features/admin/components/users-table";
-import { useAuditLogs, useCompany, usePlatformAdmins, useSetCompanyActive, useTransactions, useUsers } from "@/features/admin/hooks";
+import {
+	useAuditLogs,
+	useCompany,
+	usePlatformAdmins,
+	useSetCompanyActive,
+	useTransactions,
+	useUsers,
+} from "@/features/admin/hooks";
 import { countryName } from "@/features/admin/labels";
 import { useAdminSession } from "@/features/auth/session";
 import { ApiError } from "@/lib/api/client";
@@ -52,7 +59,11 @@ export function CompanyDetail({ id }: { id: string }) {
 			<>
 				<PageHeader title="Company" breadcrumbs={[{ label: "Companies", href: "/companies" }, { label: "Not found" }]} />
 				<SectionCard>
-					<ErrorState title="We couldn't load this company" message={errorMessage(company.error)} onRetry={() => company.refetch()} />
+					<ErrorState
+						title="We couldn't load this company"
+						message={errorMessage(company.error)}
+						onRetry={() => company.refetch()}
+					/>
 				</SectionCard>
 			</>
 		);

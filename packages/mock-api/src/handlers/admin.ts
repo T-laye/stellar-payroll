@@ -36,8 +36,25 @@ const userIn = (db: MockDb, id: string | undefined) =>
 		"user",
 	);
 
-function audit(db: MockDb, ctx: Ctx, action: string, resource_type: string, resource_id: string, company_id: string, metadata = {}) {
-	db.auditLogs.unshift({ id: uuid(), company_id, user_id: me(ctx).id, action, resource_type, resource_id, metadata, created_at: iso(Date.now()) });
+function audit(
+	db: MockDb,
+	ctx: Ctx,
+	action: string,
+	resource_type: string,
+	resource_id: string,
+	company_id: string,
+	metadata = {},
+) {
+	db.auditLogs.unshift({
+		id: uuid(),
+		company_id,
+		user_id: me(ctx).id,
+		action,
+		resource_type,
+		resource_id,
+		metadata,
+		created_at: iso(Date.now()),
+	});
 }
 
 const flag = (value: string | null) => (value === "true" ? true : value === "false" ? false : null);
@@ -223,7 +240,8 @@ route("DELETE", "/admin/platform-admins/:userId", "user", (ctx) => {
 	const list = update((db) => {
 		const u = userIn(db, ctx.params.userId);
 		if (!u.is_platform_admin) throw new HttpError(404, "user is not a platform admin");
-		if (db.users.filter((x) => x.is_platform_admin).length === 1) throw new HttpError(409, "cannot remove the last remaining platform admin");
+		if (db.users.filter((x) => x.is_platform_admin).length === 1)
+			throw new HttpError(409, "cannot remove the last remaining platform admin");
 		u.is_platform_admin = false;
 		u.platform_admin_granted_at = null;
 		u.platform_admin_granted_by = null;

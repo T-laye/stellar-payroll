@@ -38,3 +38,6 @@ dev-server.log
 .DS_Store
 *.pem
 *.tsbuildinfo
+
+# Demo videos and their working files (/brag runs), kept local
+brag-output*/

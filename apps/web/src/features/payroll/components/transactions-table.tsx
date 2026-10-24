@@ -47,10 +47,10 @@ export function TransactionsTable({
 							<TableHead className="pl-4 sm:pl-5">Employee</TableHead>
 							<TableHead className="text-right">Amount</TableHead>
 							<TableHead className="hidden sm:table-cell">Asset</TableHead>
-							<TableHead className="pr-4 sm:pr-2">Status</TableHead>
-							<TableHead className="hidden lg:table-cell">Date</TableHead>
-							{showRun && <TableHead className="hidden xl:table-cell">Payroll</TableHead>}
-							<TableHead className="hidden md:table-cell">Transaction</TableHead>
+							<TableHead className="hidden sm:table-cell sm:pr-2">Status</TableHead>
+							<TableHead className="hidden xl:table-cell">Date</TableHead>
+							{showRun && <TableHead className="hidden 2xl:table-cell">Payroll</TableHead>}
+							<TableHead className="hidden md:table-cell lg:hidden xl:table-cell">Transaction</TableHead>
 							<TableHead className="hidden w-24 pr-5 text-right sm:table-cell">
 								<span className="sr-only">Actions</span>
 							</TableHead>
@@ -72,6 +72,10 @@ export function TransactionsTable({
 											subtitle={failure ? <span className="text-destructive">{failure.category}</span> : undefined}
 											size="sm"
 										/>
+										{/* Phones: the status sits under the name instead of in its own column. */}
+										<div className="mt-1.5 pl-10 sm:hidden">
+											<PaymentStatusPill status={t.status} />
+										</div>
 									</TableCell>
 									<TableCell className="text-right font-medium">
 										<Money value={t.amount} asset={t.asset} />
@@ -79,14 +83,14 @@ export function TransactionsTable({
 									<TableCell className="hidden sm:table-cell">
 										<AssetBadge asset={t.asset} />
 									</TableCell>
-									<TableCell className="pr-4 sm:pr-2">
+									<TableCell className="hidden sm:table-cell sm:pr-2">
 										<PaymentStatusPill status={t.status} />
 									</TableCell>
-									<TableCell className="hidden whitespace-nowrap text-muted-foreground lg:table-cell">
+									<TableCell className="hidden whitespace-nowrap text-muted-foreground xl:table-cell">
 										{formatDate(t.confirmed_at ?? t.created_at)}
 									</TableCell>
 									{showRun && (
-										<TableCell className="hidden max-w-44 xl:table-cell">
+										<TableCell className="hidden max-w-44 2xl:table-cell">
 											<Link
 												href={routes.payroll.detail(t.payroll_run_id)}
 												className="block truncate text-muted-foreground hover:text-primary"
@@ -95,13 +99,18 @@ export function TransactionsTable({
 											</Link>
 										</TableCell>
 									)}
-									<TableCell className="hidden md:table-cell">
+									<TableCell className="hidden md:table-cell lg:hidden xl:table-cell">
 										<HashValue value={t.stellar_tx_hash} />
 									</TableCell>
 									<TableCell className="hidden pr-5 text-right sm:table-cell">
 										<div className="flex items-center justify-end gap-1">
 											{failure && canRetryPayments && canRetry(t) && (
-												<Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => setTarget({ tx: t, key: newIdempotencyKey() })}>
+												<Button
+													variant="outline"
+													size="sm"
+													className="h-7 px-2 text-xs"
+													onClick={() => setTarget({ tx: t, key: newIdempotencyKey() })}
+												>
 													<RotateCw className="size-3" /> Retry
 												</Button>
 											)}

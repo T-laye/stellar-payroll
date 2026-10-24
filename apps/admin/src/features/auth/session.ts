@@ -64,7 +64,12 @@ export function expireSession() {
 function claims(token: string): Record<string, unknown> {
 	try {
 		const part = token.split(".")[1] ?? "";
-		const json = atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "="));
+		const json = atob(
+			part
+				.replace(/-/g, "+")
+				.replace(/_/g, "/")
+				.padEnd(Math.ceil(part.length / 4) * 4, "="),
+		);
 		return JSON.parse(json) as Record<string, unknown>;
 	} catch {
 		return {};

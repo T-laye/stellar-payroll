@@ -104,7 +104,11 @@ function UsersList() {
 				) : isError ? (
 					<ErrorState message={errorMessage(error, "We couldn't load users.")} onRetry={() => refetch()} />
 				) : users.length === 0 ? (
-					<EmptyState icon={Users} title={filtered ? "No users match" : "No users yet"} description={filtered ? "Try other filters." : undefined} />
+					<EmptyState
+						icon={Users}
+						title={filtered ? "No users match" : "No users yet"}
+						description={filtered ? "Try other filters." : undefined}
+					/>
 				) : (
 					<UsersTable users={users} adminIds={adminIds} />
 				)}

@@ -30,7 +30,9 @@ export const FULL_PAGE = 200;
 
 /** A fresh key per user action. Make it when the form or dialog opens, so a double click repeats it. */
 export function newIdempotencyKey() {
-	return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	return typeof crypto !== "undefined" && "randomUUID" in crypto
+		? crypto.randomUUID()
+		: `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function messageOf(body: unknown, fallback: string) {

@@ -111,9 +111,9 @@ function Employees() {
 				}
 			/>
 			<SectionCard flush>
-				<div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center lg:justify-between">
+				<div className="flex flex-col gap-3 border-b border-border p-4 xl:flex-row xl:items-center xl:justify-between">
 					<FilterTabs options={FILTERS} value={filter} onChange={setFilter} counts={counts} label="Filter employees by status" />
-					<div className="relative lg:w-72">
+					<div className="relative xl:w-72">
 						<Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
 						<Input
 							value={search}
@@ -154,12 +154,12 @@ function Employees() {
 							<TableHeader>
 								<TableRow className="hover:bg-transparent">
 									<TableHead className="pl-5">Name</TableHead>
-									<TableHead className="hidden xl:table-cell">Email</TableHead>
-									<TableHead className="hidden md:table-cell">Role</TableHead>
+									<TableHead className="hidden 2xl:table-cell">Email</TableHead>
+									<TableHead className="hidden md:table-cell lg:hidden xl:table-cell">Role</TableHead>
 									<TableHead className="text-right">Salary</TableHead>
 									<TableHead className="hidden sm:table-cell">Asset</TableHead>
-									<TableHead className="hidden lg:table-cell">Frequency</TableHead>
-									<TableHead>Status</TableHead>
+									<TableHead className="hidden xl:table-cell">Frequency</TableHead>
+									<TableHead className="hidden sm:table-cell">Status</TableHead>
 									<TableHead className="hidden w-20 pr-5 text-right sm:table-cell">
 										<span className="sr-only">Actions</span>
 									</TableHead>
@@ -172,22 +172,28 @@ function Employees() {
 											<Link href={routes.employees.detail(e.id)} className="block hover:[&_span]:text-primary">
 												<PersonCell
 													name={`${e.first_name} ${e.last_name}`}
-													subtitle={<span className="hidden sm:inline xl:hidden">{e.email}</span>}
+													subtitle={<span className="hidden sm:inline 2xl:hidden">{e.email}</span>}
 												/>
 											</Link>
+											{/* Phones: the status sits under the name instead of in its own column. */}
+											<div className="mt-1.5 pl-12 sm:hidden">
+												<EmployeeStatusPill employee={e} />
+											</div>
 										</TableCell>
-										<TableCell className="hidden max-w-56 truncate text-muted-foreground xl:table-cell">{e.email}</TableCell>
-										<TableCell className="hidden max-w-48 truncate md:table-cell">{e.job_title}</TableCell>
+										<TableCell className="hidden max-w-56 truncate text-muted-foreground 2xl:table-cell">{e.email}</TableCell>
+										<TableCell className="hidden max-w-48 truncate md:table-cell lg:hidden xl:table-cell">
+											{e.job_title}
+										</TableCell>
 										<TableCell className="text-right font-medium">
 											<Money value={e.salary_amount} asset={e.salary_currency} />
 										</TableCell>
 										<TableCell className="hidden sm:table-cell">
 											<AssetBadge asset={e.salary_currency} />
 										</TableCell>
-										<TableCell className="hidden text-muted-foreground lg:table-cell">
+										<TableCell className="hidden text-muted-foreground xl:table-cell">
 											{formatFrequency(frequencyOf(e))}
 										</TableCell>
-										<TableCell>
+										<TableCell className="hidden sm:table-cell">
 											<EmployeeStatusPill employee={e} />
 										</TableCell>
 										<TableCell className="hidden pr-5 text-right sm:table-cell">

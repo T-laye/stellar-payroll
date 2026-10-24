@@ -34,13 +34,21 @@ export default function SignInPage() {
 
 	return (
 		<div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-brand-night px-4 py-10">
-			<div className="pointer-events-none absolute -top-40 -right-40 size-130 rounded-full bg-brand-magenta/20 blur-3xl" aria-hidden />
-			<div className="pointer-events-none absolute -bottom-40 -left-40 size-140 rounded-full bg-brand-purple/35 blur-3xl" aria-hidden />
+			<div
+				className="pointer-events-none absolute -top-40 -right-40 size-130 rounded-full bg-brand-magenta/20 blur-3xl"
+				aria-hidden
+			/>
+			<div
+				className="pointer-events-none absolute -bottom-40 -left-40 size-140 rounded-full bg-brand-purple/35 blur-3xl"
+				aria-hidden
+			/>
 			<div className="animate-rise relative w-full max-w-md">
 				<div className="mb-8 flex items-center justify-center gap-2.5">
 					{/* eslint-disable-next-line @next/next/no-img-element */}
 					<img src={withBasePath("/images/logo-white.svg")} alt="PayOrbit" width={150} height={33} className="h-auto w-36" />
-					<span className="rounded-md bg-white/10 px-1.5 py-0.5 text-xs font-semibold tracking-wide text-white/80 uppercase">Admin</span>
+					<span className="rounded-md bg-white/10 px-1.5 py-0.5 text-xs font-semibold tracking-wide text-white/80 uppercase">
+						Admin
+					</span>
 				</div>
 				<div className="rounded-2xl border border-border bg-card p-7 shadow-2xl shadow-black/30 sm:p-9">
 					<div className="mb-7">
@@ -52,7 +60,15 @@ export default function SignInPage() {
 							<Label htmlFor="email">Email address</Label>
 							<div className="relative">
 								<Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-								<Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-10 pl-9" placeholder="you@payorbit.com" />
+								<Input
+									id="email"
+									type="email"
+									autoComplete="email"
+									value={email}
+									onChange={(e) => setEmail(e.target.value)}
+									className="h-10 pl-9"
+									placeholder="you@payorbit.com"
+								/>
 							</div>
 						</div>
 						<div className="space-y-1.5">
@@ -71,7 +87,10 @@ export default function SignInPage() {
 							</div>
 						</div>
 						{error && (
-							<p role="alert" className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+							<p
+								role="alert"
+								className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+							>
 								{error}
 							</p>
 						)}

@@ -49,6 +49,7 @@ export const getAuditLogs = (filters: AuditFilters) => api.get<AuditLog[], PageM
 
 export const getPlatformAdmins = () => api.get<PlatformAdmin[]>(ADMIN_ENDPOINTS.admins);
 /** Answers the updated list. 409 if they're already one. */
-export const grantPlatformAdmin = (userId: string, key?: string) => api.post<PlatformAdmin[]>(ADMIN_ENDPOINTS.admins, { user_id: userId }, key);
+export const grantPlatformAdmin = (userId: string, key?: string) =>
+	api.post<PlatformAdmin[]>(ADMIN_ENDPOINTS.admins, { user_id: userId }, key);
 /** Answers the updated list. 409 for the last remaining admin. */
 export const revokePlatformAdmin = (userId: string) => api.delete<PlatformAdmin[]>(ADMIN_ENDPOINTS.admin(userId));

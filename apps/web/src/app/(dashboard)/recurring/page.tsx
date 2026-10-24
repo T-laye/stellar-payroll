@@ -86,10 +86,10 @@ function RecurringPayroll() {
 								<TableRow className="hover:bg-transparent">
 									<TableHead className="pl-5">Schedule name</TableHead>
 									<TableHead className="hidden sm:table-cell">Frequency</TableHead>
-									<TableHead className="hidden text-right md:table-cell">Employees</TableHead>
+									<TableHead className="hidden text-right md:table-cell lg:hidden xl:table-cell">Employees</TableHead>
 									<TableHead className="text-right">Amount</TableHead>
-									<TableHead>Next payment</TableHead>
-									<TableHead>Status</TableHead>
+									<TableHead className="hidden sm:table-cell">Next payment</TableHead>
+									<TableHead className="hidden sm:table-cell">Status</TableHead>
 									<TableHead className="w-20 pr-5" />
 								</TableRow>
 							</TableHeader>
@@ -100,13 +100,22 @@ function RecurringPayroll() {
 											<Link href={routes.recurring.detail(s.id)} className="font-medium text-foreground hover:text-primary">
 												{s.name}
 											</Link>
+											{/* Phones: status and next date sit under the name instead of in their own columns. */}
+											<div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+												<ScheduleStatusPill status={s.status} />
+												{s.next_run_at && s.status !== "CANCELLED" && (
+													<span className="text-xs text-muted-foreground">Next {formatDate(s.next_run_at)}</span>
+												)}
+											</div>
 										</TableCell>
 										<TableCell className="hidden sm:table-cell">{formatFrequency(s.frequency)}</TableCell>
-										<TableCell className="hidden text-right tabular-nums md:table-cell">{s.employee_count}</TableCell>
+										<TableCell className="hidden text-right tabular-nums md:table-cell lg:hidden xl:table-cell">
+											{s.employee_count}
+										</TableCell>
 										<TableCell className="text-right font-medium">
 											<Money value={s.amount_per_cycle} asset={s.asset} />
 										</TableCell>
-										<TableCell className="whitespace-nowrap">
+										<TableCell className="hidden whitespace-nowrap sm:table-cell">
 											{s.next_run_at && s.status !== "CANCELLED" ? (
 												<>
 													{formatDate(s.next_run_at)}
@@ -118,7 +127,7 @@ function RecurringPayroll() {
 												<span className="text-muted-foreground">—</span>
 											)}
 										</TableCell>
-										<TableCell>
+										<TableCell className="hidden sm:table-cell">
 											<ScheduleStatusPill status={s.status} />
 										</TableCell>
 										<TableCell className="pr-5 text-right">

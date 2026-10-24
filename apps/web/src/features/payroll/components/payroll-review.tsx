@@ -43,117 +43,125 @@ export function PayrollReview({
 	const runIssues = items.length > 0 ? blocking.filter((i) => !i.employee_name) : [];
 
 	return (
-		<div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-			<SectionCard title="Summary" className="h-fit">
-				<ul className="space-y-5">
-					<SummaryRow icon={Users} label="Employees" value={isLoading ? "…" : String(review?.employee_count ?? 0)} />
-					<SummaryRow
-						icon={Coins}
-						label="Total amount"
-						value={
-							<Money value={review?.total_amount ?? run.total_amount} asset={run.currency} withCode={run.currency === "USDC"} />
-						}
-					/>
-					<SummaryRow icon={Wallet} label="Payment asset" value={<AssetBadge asset={review?.asset ?? run.currency} />} />
-					<SummaryRow
-						icon={Clock}
-						label="Estimated transaction"
-						value={
-							<span className="text-sm">
-								{review?.estimated_transactions ?? 1} Stellar transaction{review?.estimated_transactions === 1 ? "" : "s"}
-								<span className="block text-xs text-muted-foreground">
-									Network fee ≈ {Number(review?.estimated_fee_xlm ?? 0).toFixed(5)} XLM
-								</span>
-							</span>
-						}
-					/>
-					<SummaryRow icon={Clock} label="Pay date" value={<span className="text-sm">{formatDateTime(run.scheduled_at)}</span>} />
-				</ul>
-			</SectionCard>
-
-			<div className="min-w-0 space-y-4">
-				{(issues.length > 0 || runIssues.length > 0) && (
-					<div
-						role="alert"
-						className="animate-rise flex flex-col gap-3 rounded-xl border border-warning/30 bg-warning/8 p-4 sm:flex-row sm:items-center"
-					>
-						<AlertTriangle className="size-5 shrink-0 text-warning" />
-						<div className="min-w-0 flex-1 text-sm">
-							<p className="font-medium text-foreground">
-								{issues.length > 0
-									? `${issues.length} employee${issues.length === 1 ? " has" : "s have"} incomplete payment information.`
-									: "This payroll can't be approved yet."}
-							</p>
-							{issues.length > 0 && (
-								<p className="text-muted-foreground">
-									{issues.map((i) => `${i.employee_name}: ${i.reason.replace(/\.$/, "").toLowerCase()}`).join(" · ")}. Fix them or
-									remove them from this payroll; it can&apos;t be approved until then.
-								</p>
-							)}
-							{runIssues.map((i) => (
-								<p key={i.reason} className="text-muted-foreground">
-									{i.reason}
-								</p>
-							))}
-						</div>
-						{issues.length === 1 && issues[0]!.employee_id && (
-							<Button asChild size="sm" variant="outline" className="shrink-0">
-								<Link href={routes.employees.edit(issues[0]!.employee_id)}>Resolve now</Link>
-							</Button>
-						)}
-					</div>
-				)}
-				{review?.ready && (
-					<div className="flex items-center gap-3 rounded-xl border border-success/25 bg-success/8 p-4 text-sm">
-						<CheckCircle2 className="size-5 shrink-0 text-success" />
-						<p className="text-foreground">Every employee has a wallet and an amount. This payroll is ready to approve.</p>
-					</div>
-				)}
-
-				<SectionCard
-					title="Employee details"
-					flush
-					action={
-						editable &&
-						onEditSelection && (
-							<Button variant="outline" size="sm" onClick={onEditSelection}>
-								Edit selection
-							</Button>
-						)
-					}
-				>
-					{isLoading ? (
-						<TableSkeleton rows={4} columns={4} />
-					) : isError ? (
-						<ErrorState onRetry={() => refetch()} />
-					) : items.length === 0 ? (
-						<EmptyState
-							compact
-							icon={Users}
-							title="No employees in this payroll"
-							description="Add at least one employee before it can be approved."
+		// Sized by its own width, not the viewport: inside the wizard (next to the stepper) the summary
+		// stacks on top so the table keeps room for Status and Remove.
+		<div className="@container">
+			<div className="grid gap-6 @5xl:grid-cols-[280px_1fr]">
+				<SectionCard title="Summary" className="h-fit">
+					<ul className="grid gap-5 sm:grid-cols-2 @5xl:grid-cols-1">
+						<SummaryRow icon={Users} label="Employees" value={isLoading ? "…" : String(review?.employee_count ?? 0)} />
+						<SummaryRow
+							icon={Coins}
+							label="Total amount"
+							value={
+								<Money value={review?.total_amount ?? run.total_amount} asset={run.currency} withCode={run.currency === "USDC"} />
+							}
 						/>
-					) : (
-						<div className="overflow-x-auto">
-							<Table>
-								<TableHeader>
-									<TableRow className="hover:bg-transparent">
-										<TableHead className="pl-5">Name</TableHead>
-										<TableHead className="text-right">Amount</TableHead>
-										<TableHead className="hidden sm:table-cell">Asset</TableHead>
-										<TableHead className="hidden sm:table-cell">Status</TableHead>
-										{editable && <TableHead className="w-12 pr-3 sm:pr-5" />}
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{items.map((item) => (
-										<ReviewRow key={`${item.id}-${item.amount}`} item={item} run={run} editable={editable} />
-									))}
-								</TableBody>
-							</Table>
+						<SummaryRow icon={Wallet} label="Payment asset" value={<AssetBadge asset={review?.asset ?? run.currency} />} />
+						<SummaryRow
+							icon={Clock}
+							label="Estimated transaction"
+							value={
+								<span className="text-sm">
+									{review?.estimated_transactions ?? 1} Stellar transaction{review?.estimated_transactions === 1 ? "" : "s"}
+									<span className="block text-xs text-muted-foreground">
+										Network fee ≈ {Number(review?.estimated_fee_xlm ?? 0).toFixed(5)} XLM
+									</span>
+								</span>
+							}
+						/>
+						<SummaryRow
+							icon={Clock}
+							label="Pay date"
+							value={<span className="text-sm">{formatDateTime(run.scheduled_at)}</span>}
+						/>
+					</ul>
+				</SectionCard>
+
+				<div className="min-w-0 space-y-4">
+					{(issues.length > 0 || runIssues.length > 0) && (
+						<div
+							role="alert"
+							className="animate-rise flex flex-col gap-3 rounded-xl border border-warning/30 bg-warning/8 p-4 sm:flex-row sm:items-center"
+						>
+							<AlertTriangle className="size-5 shrink-0 text-warning" />
+							<div className="min-w-0 flex-1 text-sm">
+								<p className="font-medium text-foreground">
+									{issues.length > 0
+										? `${issues.length} employee${issues.length === 1 ? " has" : "s have"} incomplete payment information.`
+										: "This payroll can't be approved yet."}
+								</p>
+								{issues.length > 0 && (
+									<p className="text-muted-foreground">
+										{issues.map((i) => `${i.employee_name}: ${i.reason.replace(/\.$/, "").toLowerCase()}`).join(" · ")}. Fix them
+										or remove them from this payroll; it can&apos;t be approved until then.
+									</p>
+								)}
+								{runIssues.map((i) => (
+									<p key={i.reason} className="text-muted-foreground">
+										{i.reason}
+									</p>
+								))}
+							</div>
+							{issues.length === 1 && issues[0]!.employee_id && (
+								<Button asChild size="sm" variant="outline" className="shrink-0">
+									<Link href={routes.employees.edit(issues[0]!.employee_id)}>Resolve now</Link>
+								</Button>
+							)}
 						</div>
 					)}
-				</SectionCard>
+					{review?.ready && (
+						<div className="flex items-center gap-3 rounded-xl border border-success/25 bg-success/8 p-4 text-sm">
+							<CheckCircle2 className="size-5 shrink-0 text-success" />
+							<p className="text-foreground">Every employee has a wallet and an amount. This payroll is ready to approve.</p>
+						</div>
+					)}
+
+					<SectionCard
+						title="Employee details"
+						flush
+						action={
+							editable &&
+							onEditSelection && (
+								<Button variant="outline" size="sm" onClick={onEditSelection}>
+									Edit selection
+								</Button>
+							)
+						}
+					>
+						{isLoading ? (
+							<TableSkeleton rows={4} columns={4} />
+						) : isError ? (
+							<ErrorState onRetry={() => refetch()} />
+						) : items.length === 0 ? (
+							<EmptyState
+								compact
+								icon={Users}
+								title="No employees in this payroll"
+								description="Add at least one employee before it can be approved."
+							/>
+						) : (
+							<div className="overflow-x-auto">
+								<Table>
+									<TableHeader>
+										<TableRow className="hover:bg-transparent">
+											<TableHead className="pl-5">Name</TableHead>
+											<TableHead className="text-right">Amount</TableHead>
+											<TableHead className="hidden sm:table-cell">Asset</TableHead>
+											<TableHead className="hidden sm:table-cell">Status</TableHead>
+											{editable && <TableHead className="w-12 pr-3 sm:pr-5" />}
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{items.map((item) => (
+											<ReviewRow key={`${item.id}-${item.amount}`} item={item} run={run} editable={editable} />
+										))}
+									</TableBody>
+								</Table>
+							</div>
+						)}
+					</SectionCard>
+				</div>
 			</div>
 		</div>
 	);

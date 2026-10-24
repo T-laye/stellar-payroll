@@ -164,6 +164,10 @@ scroll.
   synchronously in `useEffect`, and never read `ref.current` during render.
 - A component using `useSearchParams` needs a `<Suspense>` boundary above it.
 - Flex children that hold tables or long text need `min-w-0` or they push the page wide.
+- Tables must fit without a sideways scroll from 1024px up (the sidebar takes 256px there): reveal secondary columns at
+  `xl`/`2xl`, or `md:table-cell lg:hidden xl:table-cell` to skip the sidebar band. On phones the status sits under the
+  name (`sm:hidden` copy) instead of in its own column. A table that appears at different widths (a card and a full page)
+  sizes its columns with container queries (`@container`, `@xl:table-cell`), like `payments-table.tsx` and `payroll-review.tsx`.
 
 ## Landmines
 

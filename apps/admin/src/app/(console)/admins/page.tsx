@@ -23,7 +23,15 @@ import { formatDate } from "@/lib/format";
 import { useDebounced } from "@/lib/use-debounced";
 
 /** Find an active user by name or email and make them a platform admin. */
-function GrantDialog({ open, onOpenChange, adminIds }: { open: boolean; onOpenChange: (open: boolean) => void; adminIds: Set<string> }) {
+function GrantDialog({
+	open,
+	onOpenChange,
+	adminIds,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	adminIds: Set<string>;
+}) {
 	const [search, setSearch] = useState("");
 	const [key, setKey] = useState(newIdempotencyKey);
 	const term = useDebounced(search.trim());
@@ -55,8 +63,8 @@ function GrantDialog({ open, onOpenChange, adminIds }: { open: boolean; onOpenCh
 				<DialogHeader>
 					<DialogTitle>Add a platform admin</DialogTitle>
 					<DialogDescription>
-						They&apos;ll see every company, user and payment, and can suspend companies and manage admins. Only PayOrbit staff should
-						have this.
+						They&apos;ll see every company, user and payment, and can suspend companies and manage admins. Only PayOrbit staff
+						should have this.
 					</DialogDescription>
 				</DialogHeader>
 				<SearchBox value={search} onChange={setSearch} label="Search users by name or email" className="lg:w-full" />
@@ -73,9 +81,15 @@ function GrantDialog({ open, onOpenChange, adminIds }: { open: boolean; onOpenCh
 						<ul className="divide-y divide-border">
 							{candidates.map((u) => (
 								<li key={u.id} className="flex items-center gap-3 px-3 py-2.5">
-									<PersonCell name={fullName(u)} subtitle={`${u.email} · ${companyName(u.company_id)}`} className="min-w-0 flex-1" size="sm" />
+									<PersonCell
+										name={fullName(u)}
+										subtitle={`${u.email} · ${companyName(u.company_id)}`}
+										className="min-w-0 flex-1"
+										size="sm"
+									/>
 									<Button size="sm" variant="outline" disabled={grant.isPending} onClick={() => pick(u)}>
-										{grant.isPending && grant.variables?.userId === u.id ? <Loader2 className="animate-spin" /> : <ShieldCheck />} Grant
+										{grant.isPending && grant.variables?.userId === u.id ? <Loader2 className="animate-spin" /> : <ShieldCheck />}{" "}
+										Grant
 									</Button>
 								</li>
 							))}

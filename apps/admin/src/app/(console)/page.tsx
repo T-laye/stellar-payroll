@@ -40,7 +40,8 @@ export default function OverviewPage() {
 						>
 							<AlertTriangle className="size-5 shrink-0 text-warning" />
 							<span className="flex-1 text-sm font-medium text-foreground">
-								{o!.suspended_companies} suspended compan{o!.suspended_companies === 1 ? "y" : "ies"}: their people can&apos;t sign in.
+								{o!.suspended_companies} suspended compan{o!.suspended_companies === 1 ? "y" : "ies"}: their people can&apos;t
+								sign in.
 							</span>
 							<span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
 								Review <ArrowRight className="size-3" />
@@ -58,7 +59,15 @@ export default function OverviewPage() {
 							hint={o ? `${formatCount(o.active_companies)} active · ${formatCount(o.suspended_companies)} suspended` : undefined}
 							href="/companies"
 						/>
-						<StatCard index={1} label="Users" icon={Users} tone="info" loading={overview.isLoading} value={formatCount(o?.total_users)} href="/users" />
+						<StatCard
+							index={1}
+							label="Users"
+							icon={Users}
+							tone="info"
+							loading={overview.isLoading}
+							value={formatCount(o?.total_users)}
+							href="/users"
+						/>
 						<StatCard
 							index={2}
 							label="Payments"
@@ -103,7 +112,10 @@ export default function OverviewPage() {
 								<ul className="divide-y divide-border">
 									{recent.data!.data.map((c) => (
 										<li key={c.id}>
-											<Link href={`/companies/${c.id}`} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/40">
+											<Link
+												href={`/companies/${c.id}`}
+												className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/40"
+											>
 												<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
 													<Building2 className="size-4" />
 												</span>
@@ -139,7 +151,10 @@ export default function OverviewPage() {
 								<ul className="divide-y divide-border">
 									{(admins.data ?? []).map((a) => (
 										<li key={a.user_id}>
-											<Link href={`/users/${a.user_id}`} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/40">
+											<Link
+												href={`/users/${a.user_id}`}
+												className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/40"
+											>
 												<Avatar name={fullName(a)} size="sm" />
 												<span className="min-w-0 flex-1">
 													<span className="block truncate text-sm font-medium">{fullName(a)}</span>

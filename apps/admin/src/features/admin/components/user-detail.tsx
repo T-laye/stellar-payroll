@@ -70,7 +70,10 @@ export function UserDetail({ id }: { id: string }) {
 		if (!u) return;
 		if (pending === "deactivate" || pending === "reactivate") {
 			const active = pending === "reactivate";
-			setActive.mutate({ id, active, key }, { onSuccess: () => done(active ? `${name} can sign in again` : `${name} is deactivated`), onError: failed });
+			setActive.mutate(
+				{ id, active, key },
+				{ onSuccess: () => done(active ? `${name} can sign in again` : `${name} is deactivated`), onError: failed },
+			);
 		} else if (pending === "grant") {
 			grant.mutate({ userId: id, key }, { onSuccess: () => done(`${name} is now a platform admin`), onError: failed });
 		} else if (pending === "revoke") {
@@ -85,7 +88,11 @@ export function UserDetail({ id }: { id: string }) {
 			label: "Deactivate",
 			destructive: true,
 		},
-		reactivate: { title: `Reactivate ${name}?`, description: "They can sign in again with their existing password.", label: "Reactivate" },
+		reactivate: {
+			title: `Reactivate ${name}?`,
+			description: "They can sign in again with their existing password.",
+			label: "Reactivate",
+		},
 		grant: {
 			title: `Make ${name} a platform admin?`,
 			description: "They'll see every company, user and payment on PayOrbit, and can suspend companies and manage other admins.",

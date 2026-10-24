@@ -3,7 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeftRight, Building2, ExternalLink, LayoutDashboard, LogOut, Menu, ScrollText, ShieldCheck, Users } from "lucide-react";
+import {
+	ArrowLeftRight,
+	Building2,
+	ExternalLink,
+	LayoutDashboard,
+	LogOut,
+	Menu,
+	ScrollText,
+	ShieldCheck,
+	Users,
+} from "lucide-react";
 import { Button } from "@repo/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@repo/ui/sheet";
 import { cn } from "@repo/ui/lib/utils";
@@ -21,7 +31,8 @@ const NAV = [
 	{ href: "/admins", label: "Platform admins", icon: ShieldCheck },
 ];
 
-const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
+const isActive = (pathname: string, href: string) =>
+	href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
 function Nav({ onNavigate }: { onNavigate?: () => void }) {
 	const pathname = usePathname();
@@ -30,7 +41,9 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
 			<Link href="/" onClick={onNavigate} className="flex h-16 items-center gap-2.5 px-5">
 				{/* eslint-disable-next-line @next/next/no-img-element */}
 				<img src={withBasePath("/images/logo-white.svg")} alt="PayOrbit" width={120} height={26} className="h-auto w-28" />
-				<span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-white/80 uppercase">Admin</span>
+				<span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-white/80 uppercase">
+					Admin
+				</span>
 			</Link>
 			<nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Console">
 				{NAV.map((item) => {
@@ -48,7 +61,10 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
 									: "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
 							)}
 						>
-							<item.icon className={cn("size-4.5 shrink-0", active ? "text-white" : "text-sidebar-foreground/70 group-hover:text-white")} aria-hidden />
+							<item.icon
+								className={cn("size-4.5 shrink-0", active ? "text-white" : "text-sidebar-foreground/70 group-hover:text-white")}
+								aria-hidden
+							/>
 							{item.label}
 						</Link>
 					);
@@ -57,10 +73,14 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
 			<div className="space-y-3 border-t border-sidebar-border p-4">
 				{USE_MOCK_API && (
 					<p className="rounded-lg bg-sidebar-accent px-3 py-2 text-xs text-sidebar-foreground">
-						<span className="font-semibold text-white">Demo mode.</span> Sample data in this browser; changes touch no real accounts.
+						<span className="font-semibold text-white">Demo mode.</span> Sample data in this browser; changes touch no real
+						accounts.
 					</p>
 				)}
-				<a href={APP_URL} className="flex items-center gap-2 px-1 text-xs text-sidebar-foreground/70 transition-colors hover:text-white">
+				<a
+					href={APP_URL}
+					className="flex items-center gap-2 px-1 text-xs text-sidebar-foreground/70 transition-colors hover:text-white"
+				>
 					Open the PayOrbit app <ExternalLink className="size-3" />
 				</a>
 			</div>

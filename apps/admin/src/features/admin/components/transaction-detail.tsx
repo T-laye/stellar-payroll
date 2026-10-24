@@ -70,7 +70,10 @@ export function TransactionDetail({ id }: { id: string }) {
 						<DetailList
 							columns={2}
 							items={[
-								{ label: "Amount", value: <Money value={t.amount} asset={assetCode(t.asset)} withCode className="font-semibold" /> },
+								{
+									label: "Amount",
+									value: <Money value={t.amount} asset={assetCode(t.asset)} withCode className="font-semibold" />,
+								},
 								{ label: "Recipient", value: t.employee_name || "--" },
 								{
 									label: "Company",
@@ -80,7 +83,10 @@ export function TransactionDetail({ id }: { id: string }) {
 										</Link>
 									),
 								},
-								{ label: "Payroll run", value: t.payroll_run_name || <span className="font-mono text-xs">{t.payroll_run_id}</span> },
+								{
+									label: "Payroll run",
+									value: t.payroll_run_name || <span className="font-mono text-xs">{t.payroll_run_id}</span>,
+								},
 								{ label: "Created", value: formatDateTime(t.created_at) },
 								{ label: "Submitted", value: t.submitted_at ? formatDateTime(t.submitted_at) : "--" },
 								{ label: "Confirmed", value: t.confirmed_at ? formatDateTime(t.confirmed_at) : "--" },
@@ -93,7 +99,10 @@ export function TransactionDetail({ id }: { id: string }) {
 						<DetailList
 							columns={2}
 							items={[
-								{ label: "Transaction hash", value: t.stellar_tx_hash ? <HashValue value={t.stellar_tx_hash} /> : "Not submitted yet" },
+								{
+									label: "Transaction hash",
+									value: t.stellar_tx_hash ? <HashValue value={t.stellar_tx_hash} /> : "Not submitted yet",
+								},
 								{ label: "Ledger", value: t.ledger_sequence ?? "--" },
 								{ label: "From", value: t.from_address ? <HashValue value={t.from_address} kind="account" /> : "--" },
 								{ label: "To", value: t.to_address ? <HashValue value={t.to_address} kind="account" /> : "--" },
