@@ -18,7 +18,7 @@ import {
 } from "@repo/ui/select";
 import { toast } from "@repo/ui/sonner";
 import { cn } from "@repo/ui/lib/utils";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -37,6 +37,7 @@ import {
 	Globe,
 } from "lucide-react";
 import { currencies } from "@/lib/constants";
+import { CompanyLogo } from "@/components/company-logo";
 
 const ProfileSchema = z.object({
 	first_name: z.string().min(2, "First name must be at least 2 characters"),
@@ -46,7 +47,11 @@ const ProfileSchema = z.object({
 const CompanyProfileSchema = z.object({
 	name: z.string().min(2, "Company name must be at least 2 characters"),
 	default_currency: z.string().min(3, "Currency is required"),
-	logo_url: z.string().optional(),
+	logo_url: z
+		.string()
+		.trim()
+		.refine((value) => !value || /^https:\/\/\S+$/i.test(value), "Use an https:// link to an image")
+		.optional(),
 	phone: z.string().optional(),
 	timezone: z.string().min(2, "Timezone is required"),
 	website: z.string().optional(),
@@ -384,6 +389,7 @@ function CompanyForm() {
 
 	const {
 		register,
+		control,
 		handleSubmit,
 		reset,
 		setValue,
@@ -399,6 +405,9 @@ function CompanyForm() {
 			website: company?.website ?? "",
 		},
 	});
+
+	const logoUrl = useWatch({ control, name: "logo_url" });
+	const logoName = useWatch({ control, name: "name" });
 
 	useEffect(() => {
 		reset({
@@ -553,12 +562,15 @@ function CompanyForm() {
 				</Field>
 
 				<Field label="Logo URL" error={errors.logo_url?.message}>
-					<Input
-						{...register("logo_url")}
-						disabled={!isEditing}
-						className={!isEditing ? "bg-muted/40" : ""}
-						placeholder="https://cdn.example.com/logo.png"
-					/>
+					<div className="flex items-center gap-3">
+						<CompanyLogo name={logoName || "Company"} src={logoUrl} className="size-10 border border-border" />
+						<Input
+							{...register("logo_url")}
+							disabled={!isEditing}
+							className={cn("min-w-0 flex-1", !isEditing && "bg-muted/40")}
+							placeholder="https://cdn.example.com/logo.png"
+						/>
+					</div>
 				</Field>
 			</div>
 

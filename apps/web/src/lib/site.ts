@@ -27,11 +27,17 @@ const THEME_COLOR = "#5501ff";
 const IS_PRODUCTION = process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
 /**
- * Absolute site URL for `metadataBase`: NEXT_PUBLIC_SITE_URL → the deployment URL on Vercel →
+ * The public host on Vercel. Link-preview crawlers (WhatsApp, X, Slack) can't open a
+ * per-deployment URL (VERCEL_URL sits behind Deployment Protection and redirects to a login), so
+ * og:image must point at the production domain; VERCEL_URL is the fallback for local `vercel build`.
+ */
+const VERCEL_HOST = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+
+/**
+ * Absolute site URL for `metadataBase`: NEXT_PUBLIC_SITE_URL → the production domain on Vercel →
  * localhost in dev. Set NEXT_PUBLIC_SITE_URL once PayOrbit has its production domain.
  */
-const ORIGIN =
-	process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`) ?? "http://localhost:3000";
+const ORIGIN = process.env.NEXT_PUBLIC_SITE_URL ?? (VERCEL_HOST && `https://${VERCEL_HOST}`) ?? "http://localhost:3000";
 
 /** This app's base path: `/app` on Vercel, empty in dev (next.config.ts). */
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";

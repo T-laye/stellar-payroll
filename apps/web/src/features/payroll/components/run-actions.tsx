@@ -55,6 +55,8 @@ export function RunActions({ run }: { run: PayrollRun }) {
 
 	const open = (kind: Exclude<Dialog, null>) => setDialog({ kind, key: newIdempotencyKey() });
 	const close = () => setDialog({ kind: null, key: "" });
+	// A repeated key replays the first response for 24 h, so a retry after a failure needs a new one.
+	const renewKey = () => setDialog((current) => (current.kind ? { ...current, key: newIdempotencyKey() } : current));
 
 	return (
 		<>
@@ -104,7 +106,10 @@ export function RunActions({ run }: { run: PayrollRun }) {
 								});
 								close();
 							},
-							onError: (error) => toastPayrollError(error, "Couldn't approve this payroll"),
+							onError: (error) => {
+								renewKey();
+								toastPayrollError(error, "Couldn't approve this payroll");
+							},
 						},
 					)
 				}
@@ -124,7 +129,10 @@ export function RunActions({ run }: { run: PayrollRun }) {
 								toast.success("Payroll is processing", { description: "Payments settle in a few seconds." });
 								close();
 							},
-							onError: (error) => toastPayrollError(error, "Couldn't start this payroll"),
+							onError: (error) => {
+								renewKey();
+								toastPayrollError(error, "Couldn't start this payroll");
+							},
 						},
 					)
 				}
@@ -145,7 +153,10 @@ export function RunActions({ run }: { run: PayrollRun }) {
 								toast.success("Payroll cancelled");
 								close();
 							},
-							onError: (error) => toast.error(errorMessage(error)),
+							onError: (error) => {
+								renewKey();
+								toast.error(errorMessage(error));
+							},
 						},
 					)
 				}
@@ -165,7 +176,10 @@ export function RunActions({ run }: { run: PayrollRun }) {
 								toast.success(`${result.retried} payment${result.retried === 1 ? "" : "s"} queued for retry`);
 								close();
 							},
-							onError: (error) => toast.error(errorMessage(error, "Couldn't retry these payments")),
+							onError: (error) => {
+								renewKey();
+								toast.error(errorMessage(error, "Couldn't retry these payments"));
+							},
 						},
 					)
 				}

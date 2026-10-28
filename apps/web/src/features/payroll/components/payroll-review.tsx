@@ -230,7 +230,7 @@ function ReviewRow({ item, run, editable }: { item: ReviewItem; run: PayrollRun;
 			</TableCell>
 			<TableCell className="text-right">
 				{editable ? (
-					<div className="ml-auto flex w-28 items-center gap-1 sm:w-36">
+					<div className="ml-auto flex w-24 items-center gap-1 sm:w-36">
 						<Input
 							type="number"
 							min="0"

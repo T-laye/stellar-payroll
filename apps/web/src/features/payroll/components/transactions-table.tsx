@@ -50,7 +50,7 @@ export function TransactionsTable({
 							<TableHead className="hidden sm:table-cell sm:pr-2">Status</TableHead>
 							<TableHead className="hidden xl:table-cell">Date</TableHead>
 							{showRun && <TableHead className="hidden 2xl:table-cell">Payroll</TableHead>}
-							<TableHead className="hidden md:table-cell lg:hidden xl:table-cell">Transaction</TableHead>
+							<TableHead className="hidden xl:table-cell">Transaction</TableHead>
 							<TableHead className="hidden w-24 pr-5 text-right sm:table-cell">
 								<span className="sr-only">Actions</span>
 							</TableHead>
@@ -99,7 +99,7 @@ export function TransactionsTable({
 											</Link>
 										</TableCell>
 									)}
-									<TableCell className="hidden md:table-cell lg:hidden xl:table-cell">
+									<TableCell className="hidden xl:table-cell">
 										<HashValue value={t.stellar_tx_hash} />
 									</TableCell>
 									<TableCell className="hidden pr-5 text-right sm:table-cell">
@@ -147,7 +147,11 @@ export function TransactionsTable({
 								toast.success("Payment queued for retry");
 								setTarget(null);
 							},
-							onError: (error) => toast.error(errorMessage(error, "Couldn't retry this payment")),
+							onError: (error) => {
+								// A repeated key replays the first response: the next try needs a new one.
+								setTarget((current) => current && { ...current, key: newIdempotencyKey() });
+								toast.error(errorMessage(error, "Couldn't retry this payment"));
+							},
 						},
 					)
 				}

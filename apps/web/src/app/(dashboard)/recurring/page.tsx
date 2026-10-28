@@ -84,19 +84,19 @@ function RecurringPayroll() {
 						<Table>
 							<TableHeader>
 								<TableRow className="hover:bg-transparent">
-									<TableHead className="pl-5">Schedule name</TableHead>
+									<TableHead className="pl-4 sm:pl-5">Schedule name</TableHead>
 									<TableHead className="hidden sm:table-cell">Frequency</TableHead>
-									<TableHead className="hidden text-right md:table-cell lg:hidden xl:table-cell">Employees</TableHead>
+									<TableHead className="hidden text-right xl:table-cell">Employees</TableHead>
 									<TableHead className="text-right">Amount</TableHead>
 									<TableHead className="hidden sm:table-cell">Next payment</TableHead>
 									<TableHead className="hidden sm:table-cell">Status</TableHead>
-									<TableHead className="w-20 pr-5" />
+									<TableHead className="w-12 pr-3 sm:w-20 sm:pr-5" />
 								</TableRow>
 							</TableHeader>
 							<TableBody>
 								{list.map((s) => (
 									<TableRow key={s.id} className={s.status === "CANCELLED" ? "opacity-60" : undefined}>
-										<TableCell className="pl-5">
+										<TableCell className="pl-4 whitespace-normal sm:pl-5 sm:whitespace-nowrap">
 											<Link href={routes.recurring.detail(s.id)} className="font-medium text-foreground hover:text-primary">
 												{s.name}
 											</Link>
@@ -109,7 +109,7 @@ function RecurringPayroll() {
 											</div>
 										</TableCell>
 										<TableCell className="hidden sm:table-cell">{formatFrequency(s.frequency)}</TableCell>
-										<TableCell className="hidden text-right tabular-nums md:table-cell lg:hidden xl:table-cell">
+										<TableCell className="hidden text-right tabular-nums xl:table-cell">
 											{s.employee_count}
 										</TableCell>
 										<TableCell className="text-right font-medium">
@@ -130,7 +130,7 @@ function RecurringPayroll() {
 										<TableCell className="hidden sm:table-cell">
 											<ScheduleStatusPill status={s.status} />
 										</TableCell>
-										<TableCell className="pr-5 text-right">
+										<TableCell className="pr-3 text-right sm:pr-5">
 											<div className="flex items-center justify-end">
 												{canManage && s.status !== "CANCELLED" && (
 													<DropdownMenu>
@@ -158,7 +158,8 @@ function RecurringPayroll() {
 														</DropdownMenuContent>
 													</DropdownMenu>
 												)}
-												<Button asChild variant="ghost" size="icon-sm" aria-label={`View ${s.name}`}>
+												{/* Phones: the name already links here, and the column has no room for two buttons. */}
+												<Button asChild variant="ghost" size="icon-sm" className="hidden sm:inline-flex" aria-label={`View ${s.name}`}>
 													<Link href={routes.recurring.detail(s.id)}>
 														<ChevronRight />
 													</Link>

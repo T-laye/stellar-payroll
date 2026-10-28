@@ -9,6 +9,7 @@ import { Card } from "@repo/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@repo/ui/dialog";
 import { Input } from "@repo/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/select";
+import { ConnectWalletButton } from "@/features/wallets/components/connect-wallet-button";
 import { useCompanyWallet } from "@/features/wallets/hooks";
 import {
 	useAddCompanyWalletTrustline,
@@ -17,6 +18,7 @@ import {
 	useCreateCompanyWallet,
 } from "@/features/wallets/hooks";
 import { useAuthStore } from "@/features/auth/store";
+import { newIdempotencyKey } from "@/lib/api/request";
 import { assetCode } from "@/lib/stellar";
 import { useWalletStore } from "@/features/wallets/store";
 import { formatStatAmount, formatStatDate, formatStatNumber } from "@/lib/format";
@@ -45,6 +47,8 @@ export function CompanyWalletsManager() {
 
 	const [detailsWalletId, setDetailsWalletId] = useState<string | null>(null);
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
+	// One key per wallet: made when the dialog opens, renewed after a failure.
+	const [createKey, setCreateKey] = useState(newIdempotencyKey);
 	const [trustlineDialogOpen, setTrustlineDialogOpen] = useState(false);
 	const [trustlineWalletId, setTrustlineWalletId] = useState<string | null>(null);
 	const [createForm, setCreateForm] = useState({
@@ -113,9 +117,12 @@ export function CompanyWalletsManager() {
 
 		try {
 			await createCompanyWallet({
-				wallet_type: walletType,
-				...(stellarAddress ? { stellar_address: stellarAddress } : {}),
-				...(secretKey ? { secret_key: secretKey } : {}),
+				payload: {
+					wallet_type: walletType,
+					...(stellarAddress ? { stellar_address: stellarAddress } : {}),
+					...(secretKey ? { secret_key: secretKey } : {}),
+				},
+				idempotencyKey: createKey,
 			});
 			toast.success("Company wallet created successfully.");
 			setCreateDialogOpen(false);
@@ -125,6 +132,7 @@ export function CompanyWalletsManager() {
 				wallet_type: "OPERATIONAL",
 			});
 		} catch (error) {
+			setCreateKey(newIdempotencyKey());
 			toast.error(error instanceof Error ? error.message : "Failed to create wallet.");
 		}
 	};
@@ -169,7 +177,13 @@ export function CompanyWalletsManager() {
 							Create and monitor company wallets, then add trustlines to support the assets your payroll operations need.
 						</p>
 					</div>
-					<Button className="gap-2" onClick={() => setCreateDialogOpen(true)}>
+					<Button
+						className="gap-2"
+						onClick={() => {
+							setCreateKey(newIdempotencyKey());
+							setCreateDialogOpen(true);
+						}}
+					>
 						<Plus className="h-4 w-4" />
 						Add Wallet
 					</Button>
@@ -384,18 +398,26 @@ export function CompanyWalletsManager() {
 
 						<div className="space-y-1.5">
 							<label className="text-sm font-medium text-foreground">Stellar Address</label>
-							<Input
-								value={createForm.stellar_address}
-								onChange={(event) =>
-									setCreateForm((current) => ({
-										...current,
-										stellar_address: event.target.value,
-									}))
-								}
-								placeholder={
-									createForm.wallet_type === "EXTERNAL" ? "Required for external wallets" : "Optional existing public key"
-								}
-							/>
+							<div className="flex flex-col gap-2 sm:flex-row">
+								<Input
+									className="min-w-0 flex-1"
+									value={createForm.stellar_address}
+									onChange={(event) =>
+										setCreateForm((current) => ({
+											...current,
+											stellar_address: event.target.value,
+										}))
+									}
+									placeholder={
+										createForm.wallet_type === "EXTERNAL" ? "Required for external wallets" : "Optional existing public key"
+									}
+								/>
+								<ConnectWalletButton
+									size="default"
+									onAddress={(address) => setCreateForm((current) => ({ ...current, stellar_address: address }))}
+									onWalletConnect={(open) => setCreateDialogOpen(!open)}
+								/>
+							</div>
 						</div>
 
 						<div className="space-y-1.5">

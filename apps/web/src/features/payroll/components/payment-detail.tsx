@@ -57,7 +57,11 @@ export function PaymentDetail({
 					// A retry is a new transaction: follow it.
 					if (next.id && next.id !== payment.id) router.replace(routes.transactions.detail(next.id));
 				},
-				onError: (error) => toast.error(errorMessage(error, "Couldn't retry this payment")),
+				onError: (error) => {
+					// A repeated key replays the first response: the next try needs a new one.
+					setRetryKey(newIdempotencyKey());
+					toast.error(errorMessage(error, "Couldn't retry this payment"));
+				},
 			},
 		);
 

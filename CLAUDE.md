@@ -109,6 +109,11 @@ Query, zustand 5, react-hook-form + zod 4, axios, lucide, sonner toasts, rechart
   nothing is in base units. Never add amounts with JS `Number`: `sumAmounts` / `toInputAmount` in `lib/decimal.ts`.
 - Wallets can be custodial (the API creates them and signs); transfers need the wallet PIN. Never log, persist or render a
   private key outside the explicit export flow.
+- "Connect wallet" (`features/wallets/components/connect-wallet-button.tsx`, `stellar-kit.ts`, ported from `../go-medi`)
+  fills a `G…` address from Freighter, Albedo or LOBSTR via Stellar Wallets Kit; phones pair over WalletConnect
+  (Reown project `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`, default `b8cc5675…`, whose domain allowlist must list
+  PayOrbit's domains). It only reads the public address, never signs. Inside a Radix dialog pass `onWalletConnect` so
+  the dialog steps aside while AppKit's modal is open.
 - Mutations never auto-retry (`retry: false`): a retried execution or transfer could go out twice.
 
 ## Domain rules

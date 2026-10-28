@@ -155,7 +155,7 @@ function Employees() {
 								<TableRow className="hover:bg-transparent">
 									<TableHead className="pl-5">Name</TableHead>
 									<TableHead className="hidden 2xl:table-cell">Email</TableHead>
-									<TableHead className="hidden md:table-cell lg:hidden xl:table-cell">Role</TableHead>
+									<TableHead className="hidden xl:table-cell">Role</TableHead>
 									<TableHead className="text-right">Salary</TableHead>
 									<TableHead className="hidden sm:table-cell">Asset</TableHead>
 									<TableHead className="hidden xl:table-cell">Frequency</TableHead>
@@ -181,7 +181,7 @@ function Employees() {
 											</div>
 										</TableCell>
 										<TableCell className="hidden max-w-56 truncate text-muted-foreground 2xl:table-cell">{e.email}</TableCell>
-										<TableCell className="hidden max-w-48 truncate md:table-cell lg:hidden xl:table-cell">
+										<TableCell className="hidden max-w-48 truncate xl:table-cell">
 											{e.job_title}
 										</TableCell>
 										<TableCell className="text-right font-medium">

@@ -20,9 +20,11 @@ export const MY_WALLET_ENDPOINTS = {
 	transfer: "/users/me/wallet/transfer",
 } as const;
 
-function getAuthOptions() {
+function getAuthOptions(idempotencyKey?: string) {
 	return {
-		headers: getStoredAuthHeaders(),
+		// Writes that move money or create things carry the key made when their dialog opened, so a
+		// double submit or a replayed request can't run twice (lib/api/request.ts does this for `api.*`).
+		headers: { ...getStoredAuthHeaders(), ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}) },
 	};
 }
 
@@ -80,12 +82,13 @@ export function getCompanyWallets(companyId: string) {
 export async function createCompanyWallet(
 	companyId: string,
 	payload: CreateCompanyWalletPayload,
+	idempotencyKey?: string,
 ) {
 	try {
 		return await axiosInstance.post<CompanyWalletResponse>(
 			COMPANY_WALLET_ENDPOINTS.list(companyId),
 			payload,
-			getAuthOptions(),
+			getAuthOptions(idempotencyKey),
 		);
 	} catch (error) {
 		normalizeWalletError(error);
@@ -159,11 +162,11 @@ export function getMyWalletPrivateKey() {
 	>(MY_WALLET_ENDPOINTS.privateKey, getAuthOptions());
 }
 
-export function transferFromMyWallet(payload: TransferFromWalletPayload) {
+export function transferFromMyWallet(payload: TransferFromWalletPayload, idempotencyKey?: string) {
 	return axiosInstance.post<GenericWalletResponse>(
 		MY_WALLET_ENDPOINTS.transfer,
 		payload,
-		getAuthOptions(),
+		getAuthOptions(idempotencyKey),
 	);
 }
 

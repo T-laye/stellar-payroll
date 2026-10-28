@@ -10,6 +10,7 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@creit.tech/stellar-wallets-kit": "2.7.1",
     "@hookform/resolvers": "^5.9.1",
     "@repo/mock-api": "workspace:*",
     "@repo/ui": "workspace:*",

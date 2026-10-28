@@ -25,11 +25,18 @@ const SITE_KEYWORDS = [
 const THEME_COLOR = "#5501ff";
 
 /**
+ * The public host on Vercel. Link-preview crawlers (WhatsApp, X, Slack) can't open a
+ * per-deployment URL (VERCEL_URL sits behind Deployment Protection and redirects to a login), so
+ * og:image must point at the production domain; VERCEL_URL is the fallback for local `vercel build`.
+ */
+const VERCEL_HOST = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+
+/**
  * Absolute URL of this site, for `metadataBase` / canonical / robots:
- * NEXT_PUBLIC_SITE_URL → the deployment URL on Vercel → localhost in dev.
+ * NEXT_PUBLIC_SITE_URL → the production domain on Vercel → localhost in dev.
  */
 const SITE_URL = new URL(
-	process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`) ?? "http://localhost:3002",
+	process.env.NEXT_PUBLIC_SITE_URL ?? (VERCEL_HOST && `https://${VERCEL_HOST}`) ?? "http://localhost:3002",
 );
 
 /**

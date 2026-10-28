@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Copy, KeyRound, Loader2, Send, ShieldCheck, Trash2, Wallet } from "lucide-react";
 import { toast } from "@repo/ui/sonner";
 import DeleteDialog from "@/components/DeleteDialog";
@@ -25,6 +26,7 @@ import {
 } from "@/features/wallets/hooks";
 import { useWalletStore } from "@/features/wallets/store";
 import { formatMoney, formatStatDate, formatStatNumber } from "@/lib/format";
+import { newIdempotencyKey } from "@/lib/api/request";
 import { assetCode } from "@/lib/stellar";
 import { StatCard } from "@/components/stat-card";
 
@@ -50,6 +52,8 @@ function formatDateTime(value: string | null | undefined) {
 export function PersonalWalletManager() {
 	const myWallet = useWalletStore((state) => state.myWallet);
 	const myPrivateKey = useWalletStore((state) => state.myPrivateKey);
+	const setMyPrivateKey = useWalletStore((state) => state.setMyPrivateKey);
+	const queryClient = useQueryClient();
 	const pinVerifiedAt = useWalletStore((state) => state.pinVerifiedAt);
 	const hasVerifiedAccess = hasFreshWalletVerification(pinVerifiedAt);
 
@@ -66,6 +70,8 @@ export function PersonalWalletManager() {
 	const [changePinDialogOpen, setChangePinDialogOpen] = useState(false);
 	const [privateKeyDialogOpen, setPrivateKeyDialogOpen] = useState(false);
 	const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+	// One key per transfer: made when the dialog opens, renewed after a failure.
+	const [transferKey, setTransferKey] = useState(newIdempotencyKey);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [shouldRevealPrivateKey, setShouldRevealPrivateKey] = useState(false);
 	const [setPinForm, setSetPinForm] = useState({ pin: "" });
@@ -155,10 +161,13 @@ export function PersonalWalletManager() {
 
 		try {
 			await transferFunds({
-				amount: transferForm.amount.trim(),
-				asset: transferForm.asset.trim().toUpperCase(),
-				destination: transferForm.destination.trim(),
-				memo: transferForm.memo.trim() || undefined,
+				payload: {
+					amount: transferForm.amount.trim(),
+					asset: transferForm.asset.trim().toUpperCase(),
+					destination: transferForm.destination.trim(),
+					memo: transferForm.memo.trim() || undefined,
+				},
+				idempotencyKey: transferKey,
 			});
 			toast.success("Transfer submitted");
 			setTransferDialogOpen(false);
@@ -169,6 +178,7 @@ export function PersonalWalletManager() {
 				memo: "",
 			});
 		} catch (error) {
+			setTransferKey(newIdempotencyKey());
 			toast.error(error instanceof Error ? error.message : "Failed to submit transfer.");
 		}
 	};
@@ -279,7 +289,15 @@ export function PersonalWalletManager() {
 									<KeyRound className="h-4 w-4" />
 									View Private Key
 								</Button>
-								<Button variant="outline" size="sm" className="gap-2" onClick={() => setTransferDialogOpen(true)}>
+								<Button
+									variant="outline"
+									size="sm"
+									className="gap-2"
+									onClick={() => {
+										setTransferKey(newIdempotencyKey());
+										setTransferDialogOpen(true);
+									}}
+								>
 									<Send className="h-4 w-4" />
 									Transfer
 								</Button>
@@ -444,6 +462,9 @@ export function PersonalWalletManager() {
 					setPrivateKeyDialogOpen(open);
 					if (!open) {
 						setShouldRevealPrivateKey(false);
+						// The key lives only while the dialog shows it: drop it from the store and the query cache.
+						setMyPrivateKey(null);
+						queryClient.removeQueries({ queryKey: ["wallets", "me", "private-key"] });
 					}
 				}}
 			>

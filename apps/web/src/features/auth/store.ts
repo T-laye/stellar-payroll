@@ -6,6 +6,9 @@ import {
 	StoredAuthSession,
 } from "@/features/auth/session";
 import { signIn, signOut } from "@/features/auth/api";
+import { queryClient } from "@/components/providers/ReactQueryProvider";
+import { useCompanyStore } from "@/features/company/store";
+import { useWalletStore } from "@/features/wallets/store";
 import { type AuthResponse, type AuthUserResponse } from "@/features/auth/types";
 import { type CurrentUserData } from "@/features/user/types";
 
@@ -330,6 +333,7 @@ export const useAuthStore = create<AuthState>()(
 					}
 				} finally {
 					clearStoredAuthSession();
+					clearUserData();
 					// Still hydrated: the persisted state was read, it is just empty now.
 					set({ ...initialState, _hydrated: true });
 				}
@@ -371,6 +375,17 @@ export const useAuthStore = create<AuthState>()(
 );
 
 /**
+ * Forget everything fetched for the person signing out: cached queries (keyed without a user id, so
+ * the next person in this tab would see them), the company, and the wallet store, which holds a
+ * decrypted private key and the PIN-verified window.
+ */
+function clearUserData() {
+	queryClient.clear();
+	useWalletStore.getState().clearWallets();
+	useCompanyStore.getState().clearCompany();
+}
+
+/**
  * The session is over (a 401 from the API: the pay token is a 30-minute sliding session). Clears it
  * without calling logout (which would 401 too); ProtectedRoute then sends the user to sign in.
  */
@@ -378,6 +393,7 @@ export function expireSession() {
 	const state = useAuthStore.getState();
 	if (!state.session && !state.user) return;
 	clearStoredAuthSession();
+	clearUserData();
 	useAuthStore.setState({ ...initialState, _hydrated: true });
 	if (typeof window !== "undefined") {
 		void import("@repo/ui/sonner").then(({ toast }) => toast.info("Your session has ended. Please sign in again."));

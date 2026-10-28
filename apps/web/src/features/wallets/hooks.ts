@@ -106,8 +106,8 @@ export function useCreateCompanyWallet(companyId?: string) {
 
 	return useMutation({
 		mutationKey: ["wallets", "create", resolvedCompanyId],
-		mutationFn: (payload: CreateCompanyWalletPayload) =>
-			createCompanyWallet(requireCompanyId(resolvedCompanyId), payload),
+		mutationFn: ({ payload, idempotencyKey }: { payload: CreateCompanyWalletPayload; idempotencyKey: string }) =>
+			createCompanyWallet(requireCompanyId(resolvedCompanyId), payload, idempotencyKey),
 		onSuccess: (response) => {
 			upsertWallet(response.data.data);
 			setSelectedWallet(response.data.data);
@@ -266,7 +266,8 @@ export function useTransferFromMyWallet() {
 
 	return useMutation({
 		mutationKey: ["wallets", "me", "transfer"],
-		mutationFn: (payload: TransferFromWalletPayload) => transferFromMyWallet(payload),
+		mutationFn: ({ payload, idempotencyKey }: { payload: TransferFromWalletPayload; idempotencyKey: string }) =>
+			transferFromMyWallet(payload, idempotencyKey),
 		onSuccess: () => {
 			markPinVerified();
 			queryClient.invalidateQueries({ queryKey: ["wallets", "me"] });

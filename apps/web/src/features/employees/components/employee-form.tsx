@@ -17,6 +17,7 @@ import { SectionCard } from "@/components/section-card";
 import { useCreateEmployee, useLinkWallet, useUpdateEmployee } from "@/features/employees/hooks";
 import { EmployeeSchema, splitName, type EmployeeFormData } from "@/features/employees/schema";
 import type { CompanyEmployee } from "@/features/employees/types";
+import { ConnectWalletButton } from "@/features/wallets/components/connect-wallet-button";
 import { useGroups } from "@/features/payroll/hooks";
 import { errorMessage, newIdempotencyKey } from "@/lib/api/request";
 import { toInputAmount } from "@/lib/decimal";
@@ -164,17 +165,24 @@ export function EmployeeForm({ employee }: { employee?: CompanyEmployee }) {
 								: "A Stellar public key, starting with G."
 						}
 					>
-						<div className="relative">
-							<Wallet className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-							<Input
-								id="wallet_address"
-								placeholder="GDUKMGUGDZQK6YH…"
-								className="pl-9 font-mono text-xs"
-								autoComplete="off"
-								spellCheck={false}
+						<div className="flex flex-col gap-2 sm:flex-row">
+							<div className="relative min-w-0 flex-1">
+								<Wallet className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+								<Input
+									id="wallet_address"
+									placeholder="GDUKMGUGDZQK6YH…"
+									className="pl-9 font-mono text-xs"
+									autoComplete="off"
+									spellCheck={false}
+									disabled={custodial}
+									{...register("wallet_address", { setValueAs: (v: string) => v.trim().toUpperCase() })}
+									aria-invalid={!!errors.wallet_address}
+								/>
+							</div>
+							<ConnectWalletButton
+								size="default"
 								disabled={custodial}
-								{...register("wallet_address", { setValueAs: (v: string) => v.trim().toUpperCase() })}
-								aria-invalid={!!errors.wallet_address}
+								onAddress={(address) => setValue("wallet_address", address, { shouldDirty: true, shouldValidate: true })}
 							/>
 						</div>
 					</FormField>

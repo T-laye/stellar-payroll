@@ -145,31 +145,37 @@ function ScheduleDetails() {
 									<TableRow className="hover:bg-transparent">
 										<TableHead className="pl-5">Date</TableHead>
 										<TableHead className="hidden text-right sm:table-cell">Employees</TableHead>
-										<TableHead className="text-right">Amount</TableHead>
-										<TableHead className="pr-5">Status</TableHead>
+										<TableHead className="pr-5 text-right sm:pr-2">Amount</TableHead>
+										<TableHead className="hidden pr-5 sm:table-cell">Status</TableHead>
 									</TableRow>
 								</TableHeader>
 								<TableBody>
-									{s.upcoming.map((c) => (
-										<TableRow key={c.date}>
-											<TableCell className="pl-5 whitespace-nowrap">{formatDate(c.date)}</TableCell>
-											<TableCell className="hidden text-right tabular-nums sm:table-cell">{c.employee_count}</TableCell>
-											<TableCell className="text-right">
-												<Money value={c.amount} asset={s.asset} />
-											</TableCell>
-											<TableCell className="pr-5">
-												{c.run_id && c.run_status ? (
-													<Link href={routes.payroll.detail(c.run_id)} className="hover:opacity-80">
-														<RunStatusPill run={{ status: c.run_status, scheduled_at: c.date, executed_at: null }} />
-													</Link>
-												) : s.status === "PAUSED" ? (
-													<TonePill label="Paused" tone="warning" />
-												) : (
-													<span className="text-xs text-muted-foreground">Draft on {formatDate(c.drafts_at)}</span>
-												)}
-											</TableCell>
-										</TableRow>
-									))}
+									{s.upcoming.map((c) => {
+										const status =
+											c.run_id && c.run_status ? (
+												<Link href={routes.payroll.detail(c.run_id)} className="hover:opacity-80">
+													<RunStatusPill run={{ status: c.run_status, scheduled_at: c.date, executed_at: null }} />
+												</Link>
+											) : s.status === "PAUSED" ? (
+												<TonePill label="Paused" tone="warning" />
+											) : (
+												<span className="text-xs text-muted-foreground">Draft on {formatDate(c.drafts_at)}</span>
+											);
+										return (
+											<TableRow key={c.date}>
+												<TableCell className="pl-5 whitespace-nowrap">
+													{formatDate(c.date)}
+													{/* Phones: the status sits under the date instead of in its own column. */}
+													<div className="mt-1.5 sm:hidden">{status}</div>
+												</TableCell>
+												<TableCell className="hidden text-right tabular-nums sm:table-cell">{c.employee_count}</TableCell>
+												<TableCell className="pr-5 text-right sm:pr-2">
+													<Money value={c.amount} asset={s.asset} />
+												</TableCell>
+												<TableCell className="hidden pr-5 sm:table-cell">{status}</TableCell>
+											</TableRow>
+										);
+									})}
 								</TableBody>
 							</Table>
 						)}

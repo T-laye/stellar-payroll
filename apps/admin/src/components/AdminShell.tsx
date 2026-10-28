@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
 	ArrowLeftRight,
 	Building2,
@@ -91,12 +92,15 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
 /** Dark rail on desktop, a drawer below `lg`; the top bar holds who's signed in and sign out. */
 export function AdminShell({ children }: { children: React.ReactNode }) {
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const user = useAdminSession((s) => s.user);
 	const [open, setOpen] = useState(false);
 	const name = user ? `${user.first_name} ${user.last_name}`.trim() || user.email : "Admin";
 
 	const logout = async () => {
 		await signOut();
+		// The next person to sign in on this tab shouldn't see this session's cached data.
+		queryClient.clear();
 		router.replace("/sign-in");
 	};
 

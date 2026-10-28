@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import Logo from "@/components/Logo";
-import { useAuthStore } from "@/features/auth/store";
+import { CompanyLogo } from "@/components/company-logo";
+import { isPayrollAdmin, useAuthStore } from "@/features/auth/store";
+import { useCompanyDetails } from "@/features/company/hooks";
 import { useUnreadCount } from "@/features/notifications/hooks";
 import { USE_MOCK_API } from "@/lib/api/source";
 import { routes } from "@/lib/routes";
@@ -71,6 +73,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 				))}
 			</nav>
 			<div className="space-y-3 border-t border-sidebar-border p-4">
+				{isPayrollAdmin(user) && <SidebarCompany />}
 				{USE_MOCK_API && (
 					<p className="rounded-lg bg-sidebar-accent px-3 py-2 text-xs text-sidebar-foreground">
 						<span className="font-semibold text-white">Demo mode.</span> Sample data in your browser; payments settle on a fast
@@ -88,6 +91,18 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 					<ExternalLink className="size-3" />
 				</a>
 			</div>
+		</div>
+	);
+}
+
+/** The signed-in company, with the logo from Settings. Admins only: employees can't read the company. */
+function SidebarCompany() {
+	const company = useCompanyDetails().data?.data;
+	if (!company) return null;
+	return (
+		<div className="flex min-w-0 items-center gap-3 px-1">
+			<CompanyLogo name={company.name} src={company.logo_url} />
+			<p className="min-w-0 truncate text-sm font-medium text-white">{company.name}</p>
 		</div>
 	);
 }

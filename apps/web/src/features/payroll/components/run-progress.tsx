@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, TableSkeleton } from "@/components/states";
 import { TransactionsTable } from "@/features/payroll/components/transactions-table";
 import { useRunTransactions } from "@/features/payroll/hooks";
 import type { PayrollRun } from "@/features/payroll/types";
+import { sumAmounts } from "@/lib/decimal";
 import { formatMoney } from "@/lib/format";
 
 /**
@@ -31,7 +32,7 @@ export function RunProgress({
 	const pending = list.length - confirmed.length - failed.length;
 	const settled = confirmed.length + failed.length;
 	const percent = list.length ? Math.round((settled / list.length) * 100) : 0;
-	const paid = confirmed.reduce((sum, t) => sum + Number(t.amount), 0);
+	const paid = sumAmounts(confirmed.map((t) => t.amount));
 
 	return (
 		<div className="space-y-6">
