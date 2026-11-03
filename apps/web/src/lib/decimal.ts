@@ -39,3 +39,15 @@ export function toInputAmount(value: string | number | null | undefined) {
 }
 
 export const isPositiveAmount = (value: string | number | null | undefined) => toUnits(value) > ZERO;
+
+/** Why an amount typed into a form can't be paid, or null if it can (Stellar: 7 places, under a trillion). */
+export function amountProblem(value: string) {
+	const text = value.trim();
+	if (text.startsWith("-")) return "Enter an amount greater than zero";
+	const match = /^(\d*)(?:\.(\d*))?$/.exec(text);
+	if (!match || (!match[1] && !match[2])) return text ? "Enter a number, like 1500.50" : "Enter an amount greater than zero";
+	if (!isPositiveAmount(text)) return "Enter an amount greater than zero";
+	if ((match[2] ?? "").length > PLACES) return `Use at most ${PLACES} decimal places`;
+	if ((match[1] ?? "").replace(/^0+/, "").length > 12) return "This amount is too large";
+	return null;
+}

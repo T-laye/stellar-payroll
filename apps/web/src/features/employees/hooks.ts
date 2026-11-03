@@ -13,6 +13,7 @@ import {
 } from "@/features/employees/api";
 import type { CreateEmployeePayload, UpdateEmployeePayload } from "@/features/employees/types";
 import { refreshPayroll, useCompanyId } from "@/features/payroll/hooks";
+import { errorMessage } from "@/lib/api/request";
 
 export function useEmployees() {
 	const companyId = useCompanyId();
@@ -53,7 +54,11 @@ function useRefresh() {
 	};
 }
 
-/** Creates the employee, then links the wallet address if one was given. */
+/**
+ * Creates the employee, then links the wallet and sends the invite. Once the employee exists, a failure
+ * in those later steps is reported as a problem to fix on their page: failing the whole mutation would
+ * leave the form open, and submitting it again only says the email already exists.
+ */
 export function useCreateEmployee() {
 	const companyId = useCompanyId();
 	const refresh = useRefresh();
@@ -72,10 +77,19 @@ export function useCreateEmployee() {
 			key: string;
 		}) => {
 			const employee = (await createEmployee(companyId!, payload, key)).data;
-			// A wallet activates the employee; an empty body makes an admin-held custodial wallet.
-			if (walletAddress || custodial) await linkEmployeeWallet(companyId!, employee.id, walletAddress);
-			if (invite) await inviteEmployee(companyId!, employee.id);
-			return employee;
+			const problems: string[] = [];
+			try {
+				// A wallet activates the employee; an empty body makes an admin-held custodial wallet.
+				if (walletAddress || custodial) await linkEmployeeWallet(companyId!, employee.id, walletAddress);
+			} catch (error) {
+				problems.push(`Wallet not linked: ${errorMessage(error)}`);
+			}
+			try {
+				if (invite) await inviteEmployee(companyId!, employee.id);
+			} catch (error) {
+				problems.push(`Invite not sent: ${errorMessage(error)}`);
+			}
+			return { employee, problems };
 		},
 		onSuccess: refresh,
 	});

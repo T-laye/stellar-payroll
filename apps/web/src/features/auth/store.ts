@@ -5,11 +5,11 @@ import {
 	clearStoredAuthSession,
 	StoredAuthSession,
 } from "@/features/auth/session";
-import { signIn, signOut } from "@/features/auth/api";
+import { changePassword as requestPasswordChange, signIn, signOut } from "@/features/auth/api";
 import { queryClient } from "@/components/providers/ReactQueryProvider";
 import { useCompanyStore } from "@/features/company/store";
 import { useWalletStore } from "@/features/wallets/store";
-import { type AuthResponse, type AuthUserResponse } from "@/features/auth/types";
+import { type AuthResponse, type AuthUserResponse, type CompanyMembership } from "@/features/auth/types";
 import { type CurrentUserData } from "@/features/user/types";
 
 export type UserRole = "owner" | "admin" | "hr-manager";
@@ -44,10 +44,15 @@ interface AuthState {
 	session: StoredAuthSession | null;
 	redirect_url: string | null;
 	company_slug: string | null;
+	/** Every company this person belongs to; more than one shows the company switcher. */
+	companies: CompanyMembership[];
 	isAuthenticated: boolean;
 	_hydrated: boolean;
 	login: (email: string, password: string) => Promise<void>;
 	hydrateAuth: (response: AuthResponse, seed: AuthSeed) => void;
+	setCompanies: (companies: CompanyMembership[]) => void;
+	/** Takes over the new session from `POST /auth/switch-company`, dropping everything from the old company. */
+	applyCompanySwitch: (response: AuthResponse) => void;
 	setUserProfile: (user: CurrentUserData) => void;
 	logout: () => Promise<void>;
 	changePassword: (
@@ -243,6 +248,7 @@ const initialState = {
 	session: null,
 	redirect_url: null,
 	company_slug: null,
+	companies: [],
 	isAuthenticated: false,
 	_hydrated: false,
 };
@@ -298,6 +304,8 @@ export const useAuthStore = create<AuthState>()(
 			},
 
 			hydrateAuth: (response, seed) => {
+				// A login that still needs a company has no session: this person isn't signed in yet.
+				if (response.data?.requires_company_selection && !response.data.session) return;
 				const session = buildSession(response);
 				const user = buildUser(response, seed);
 
@@ -310,10 +318,19 @@ export const useAuthStore = create<AuthState>()(
 						response.data?.user?.company_slug ??
 						seed.company_slug ??
 						null,
+					companies: response.data?.companies ?? [],
 					isAuthenticated: Boolean(
 						user || session?.access_token || session?.pay_token,
 					),
 				});
+			},
+
+			setCompanies: (companies) => set({ companies }),
+
+			applyCompanySwitch: (response) => {
+				const email = get().user?.email ?? "";
+				clearUserData();
+				get().hydrateAuth(response, { email });
 			},
 
 			setUserProfile: (currentUser) => {
@@ -344,8 +361,8 @@ export const useAuthStore = create<AuthState>()(
 					throw new Error("Current password is required");
 				}
 
-				if (newPassword.length < 6) {
-					throw new Error("New password must be at least 6 characters");
+				if (newPassword.length < 8) {
+					throw new Error("New password must be at least 8 characters");
 				}
 
 				if (currentPassword === newPassword) {
@@ -353,6 +370,8 @@ export const useAuthStore = create<AuthState>()(
 						"New password must be different from current password",
 					);
 				}
+
+				await requestPasswordChange({ current_password: currentPassword, new_password: newPassword });
 			},
 		}),
 		{
@@ -363,6 +382,7 @@ export const useAuthStore = create<AuthState>()(
 				session: state.session,
 				redirect_url: state.redirect_url,
 				company_slug: state.company_slug,
+				companies: state.companies,
 				isAuthenticated: state.isAuthenticated,
 			}),
 			onRehydrateStorage: () => (state) => {

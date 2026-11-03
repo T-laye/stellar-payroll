@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -12,6 +13,7 @@ import { AuthShell, Field, PasswordInput } from "@/features/auth/components/auth
 import { DemoAccountNote } from "@/features/auth/components/demo-mode";
 import { useLogin } from "@/features/auth/hooks";
 import { SigninSchema, type SigninFormData } from "@/features/auth/schema";
+import type { CompanyMembership } from "@/features/auth/types";
 import { routes } from "@/lib/routes";
 
 export default function SignInPage() {
@@ -21,12 +23,19 @@ export default function SignInPage() {
 		register,
 		handleSubmit,
 		setValue,
+		getValues,
 		formState: { errors },
 	} = useForm<SigninFormData>({ resolver: zodResolver(SigninSchema) });
+	const [companies, setCompanies] = useState<CompanyMembership[] | null>(null);
 
-	const onSubmit = async (data: SigninFormData) => {
+	const onSubmit = async (data: SigninFormData, companyId?: string) => {
 		try {
-			await login(data);
+			const response = await login({ ...data, company_id: companyId });
+			// In more than one company: no session yet, they choose one and log in again.
+			if (response?.data?.requires_company_selection && !response.data.session) {
+				setCompanies(response.data.companies ?? []);
+				return;
+			}
 			toast.success("Welcome back");
 			router.push(routes.dashboardRoutes.OVERVIEW);
 		} catch (error) {
@@ -34,9 +43,37 @@ export default function SignInPage() {
 		}
 	};
 
+	if (companies) {
+		return (
+			<AuthShell title="Choose a company" description="Your account belongs to more than one company. You can switch at any time.">
+				<ul className="space-y-3">
+					{companies.map((company) => (
+						<li key={company.company_id}>
+							<button
+								type="button"
+								disabled={isPending}
+								onClick={() => onSubmit(getValues(), company.company_id)}
+								className="flex w-full items-center justify-between gap-3 rounded-xl border border-border p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-60"
+							>
+								<span className="min-w-0">
+									<span className="block truncate text-sm font-semibold text-foreground">{company.company_name}</span>
+									<span className="block text-xs text-muted-foreground">{company.role}</span>
+								</span>
+								{isPending ? <Loader2 className="size-4 shrink-0 animate-spin" /> : <ArrowRight className="size-4 shrink-0 text-muted-foreground" />}
+							</button>
+						</li>
+					))}
+				</ul>
+				<Button variant="ghost" className="mt-4 w-full" disabled={isPending} onClick={() => setCompanies(null)}>
+					Use a different account
+				</Button>
+			</AuthShell>
+		);
+	}
+
 	return (
 		<AuthShell title="Welcome back" description="Sign in to your organization account.">
-			<form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+			<form method="post" onSubmit={handleSubmit((data) => onSubmit(data))} className="space-y-5" noValidate>
 				<Field label="Email address" error={errors.email?.message}>
 					<div className="relative">
 						<Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />

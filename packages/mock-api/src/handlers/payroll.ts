@@ -97,22 +97,20 @@ function issueOf(db: MockDb, item: MockLineItem) {
 }
 
 function issues(db: MockDb, run: MockRun) {
-	return db.lineItems
+	const people: { employee_id?: string; employee_name?: string; reason: string }[] = db.lineItems
 		.filter((i) => i.payroll_run_id === run.id)
 		.map((i) => ({ item: i, reason: issueOf(db, i) }))
 		.filter((x) => x.reason)
 		.map(({ item, reason }) => ({ employee_id: item.employee_id, employee_name: withEmployee(db, item).employee_name, reason: reason! }));
+	const canPay = db.wallets.some((w) => w.owner_type === "COMPANY" && w.owner_id === run.company_id && w.wallet_type === "OPERATIONAL");
+	return canPay ? people : [...people, { reason: "Company has no operational wallet. Create or import one with its secret key before paying." }];
 }
 
 /** Approve and execute refuse an incomplete run: 409 with `data.issues[]`. */
 function requireComplete(db: MockDb, run: MockRun) {
 	const found = issues(db, run);
 	if (found.length) {
-		throw new HttpError(
-			409,
-			`${found.length} employee${found.length === 1 ? " has" : "s have"} incomplete payment information`,
-			{ issues: found },
-		);
+		throw new HttpError(409, "payroll run has incomplete payment information", { issues: found });
 	}
 }
 

@@ -48,7 +48,7 @@ import {
 	ChevronsUpDown,
 } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
-import { countries, timezones } from "@/lib/constants";
+import { countries, countryName, timezones } from "@/lib/constants";
 import { routes } from "@/lib/routes";
 import { AuthLegalFooter, AuthShell } from "@/features/auth/components/auth-ui";
 
@@ -154,7 +154,7 @@ export default function Page() {
 	const selectedTimezone = watch("company_timezone");
 
 	const filteredCountries = countries.filter((country) =>
-		country.toLowerCase().includes(countrySearch.toLowerCase()),
+		country.name.toLowerCase().includes(countrySearch.toLowerCase()),
 	);
 	const filteredTimezones = timezones.filter((timezone) =>
 		timezone.toLowerCase().includes(timezoneSearch.toLowerCase()),
@@ -295,7 +295,7 @@ export default function Page() {
 															!selectedCountry && "text-muted-foreground",
 														)}
 													>
-														{selectedCountry || "Select country..."}
+														{countryName(selectedCountry) || "Select country..."}
 													</span>
 													<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
 												</Button>
@@ -315,10 +315,10 @@ export default function Page() {
 														<CommandGroup>
 															{filteredCountries.map((country) => (
 																<CommandItem
-																	key={country}
-																	value={country}
-																	onSelect={(value) => {
-																		setValue("company_country", value, {
+																	key={country.code}
+																	value={country.name}
+																	onSelect={() => {
+																		setValue("company_country", country.code, {
 																			shouldValidate: true,
 																			shouldDirty: true,
 																		});
@@ -329,12 +329,12 @@ export default function Page() {
 																	<Check
 																		className={cn(
 																			"mr-2 h-4 w-4",
-																			selectedCountry === country
+																			selectedCountry === country.code
 																				? "opacity-100"
 																				: "opacity-0",
 																		)}
 																	/>
-																	{country}
+																	{country.name}
 																</CommandItem>
 															))}
 														</CommandGroup>

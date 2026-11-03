@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { hasAnyPermission, useAuthStore } from "@/features/auth/store";
 import { useApproveRun, useCancelRun, usePayNow, useRetryFailed, useRunReview, useRunTransactions } from "@/features/payroll/hooks";
 import type { PayrollRun } from "@/features/payroll/types";
+import { walletIssue } from "@/features/payroll/normalize";
 import { blockingIssues, errorMessage, newIdempotencyKey } from "@/lib/api/request";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { runPhase } from "@/lib/status";
@@ -16,11 +17,13 @@ import { useMountTime } from "@/lib/use-now";
 
 type Dialog = "schedule" | "pay" | "cancel" | "retry" | null;
 
-/** A refused approval or payment names who is blocking it (409 `data.issues[]`). */
+/** A refused approval or payment names what is blocking it (409 `data.issues[]`). */
 export function toastPayrollError(error: unknown, fallback: string) {
 	const issues = blockingIssues(error);
 	if (issues.length) {
-		toast.error(errorMessage(error, fallback), { description: issues.map((i) => `${i.employee_name}: ${i.reason}`).join(" · ") });
+		toast.error(errorMessage(error, fallback), {
+			description: issues.map((i) => (i.employee_name ? `${i.employee_name}: ${i.reason}` : i.reason)).join(" · "),
+		});
 	} else {
 		toast.error(errorMessage(error, fallback));
 	}
@@ -37,7 +40,7 @@ export function RunActions({ run }: { run: PayrollRun }) {
 	const canExecute = hasAnyPermission(user, ["payroll:execute"]);
 	const canCancel = hasAnyPermission(user, ["payroll:cancel"]);
 	const phase = runPhase(run);
-	const review = useRunReview(run.status === "DRAFT" ? run.id : undefined);
+	const review = useRunReview(run.status === "DRAFT" || run.status === "APPROVED" ? run.id : undefined);
 	const txs = useRunTransactions(phase === "failed" ? run.id : undefined);
 	const approve = useApproveRun();
 	const payNow = usePayNow();
@@ -46,12 +49,13 @@ export function RunActions({ run }: { run: PayrollRun }) {
 	const [dialog, setDialog] = useState<{ kind: Dialog; key: string }>({ kind: null, key: "" });
 	const now = useMountTime();
 
-	const blocked = run.status === "DRAFT" && !review.data?.ready;
+	const companyIssue = walletIssue(review.data);
+	const blocked = (run.status === "DRAFT" && !review.data?.ready) || !!companyIssue;
 	const retryable = (txs.data ?? []).filter(canRetry);
 	const total = formatMoney(run.total_amount, run.currency);
 	const people = run.employee_count ?? review.data?.employee_count ?? 0;
 	const payDatePassed = Date.parse(run.scheduled_at) <= now;
-	const blockedTitle = blocked ? "Fix the incomplete payment information first" : undefined;
+	const blockedTitle = companyIssue?.reason ?? (blocked ? "Fix the incomplete payment information first" : undefined);
 
 	const open = (kind: Exclude<Dialog, null>) => setDialog({ kind, key: newIdempotencyKey() });
 	const close = () => setDialog({ kind: null, key: "" });

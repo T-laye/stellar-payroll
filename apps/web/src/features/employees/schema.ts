@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { amountProblem } from "@/lib/decimal";
+import { isStellarAddress } from "@/lib/stellar";
 
 /** Add / edit employee. `full_name` splits into the API's first and last name. */
 export const EmployeeSchema = z.object({
@@ -6,7 +8,11 @@ export const EmployeeSchema = z.object({
 		.string()
 		.trim()
 		.min(2, "Enter the employee's full name")
-		.refine((value) => value.split(/\s+/).length >= 2, "Enter a first and last name"),
+		.refine((value) => value.split(/\s+/).length >= 2, "Enter a first and last name")
+		.refine((value) => {
+			const { first_name, last_name } = splitName(value);
+			return first_name.length <= 100 && last_name.length <= 100;
+		}, "First and last name can each be at most 100 characters"),
 	email: z.email("Enter a valid email address"),
 	job_title: z.string().trim().min(2, "Enter a role or job title"),
 	department: z.string().trim().min(2, "Enter a department"),
@@ -17,11 +23,14 @@ export const EmployeeSchema = z.object({
 	wallet_address: z
 		.string()
 		.trim()
-		.refine((value) => value === "" || /^G[A-Z2-7]{55}$/.test(value), "A Stellar address starts with G and has 56 characters"),
+		.refine((value) => value === "" || isStellarAddress(value), "This isn't a valid Stellar address. Check for typos: it starts with G and has 56 characters"),
 	salary_amount: z
 		.string()
 		.trim()
-		.refine((value) => Number(value) > 0, "Enter an amount greater than zero"),
+		.superRefine((value, ctx) => {
+			const problem = amountProblem(value);
+			if (problem) ctx.addIssue({ code: "custom", message: problem });
+		}),
 	salary_currency: z.enum(["USDC", "XLM"]),
 	pay_frequency: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
 	group_id: z.string().optional(),

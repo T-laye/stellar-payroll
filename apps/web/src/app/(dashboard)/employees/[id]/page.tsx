@@ -23,6 +23,7 @@ import { useGroups, useTransactions } from "@/features/payroll/hooks";
 import { DemoEmailLink } from "@/features/auth/components/demo-mode";
 import { sumAmounts } from "@/lib/decimal";
 import { FULL_PAGE, errorMessage } from "@/lib/api/request";
+import { countryName } from "@/lib/constants";
 import { formatDate, formatFrequency, formatMoney } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { employeePhase } from "@/lib/status";
@@ -187,7 +188,7 @@ function EmployeeProfile() {
 									{ label: "Role", value: e.job_title },
 									{ label: "Department", value: e.department },
 									{ label: "Employment", value: EMPLOYMENT[e.employment_type] ?? e.employment_type },
-									{ label: "Country", value: e.country },
+									{ label: "Country", value: countryName(e.country) },
 									{ label: "Start date", value: formatDate(e.start_date) },
 									{ label: "Employee no.", value: <span className="font-mono text-xs">{e.employee_number}</span> },
 								]}

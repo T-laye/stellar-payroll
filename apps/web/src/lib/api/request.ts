@@ -96,11 +96,14 @@ export function errorMessage(error: unknown, fallback = "Something went wrong") 
 	return error instanceof Error && error.message ? error.message : fallback;
 }
 
-/** The people blocking an approval or execution (409 `data.issues[]`), if that's what this error is. */
-export function blockingIssues(error: unknown): { employee_name: string; reason: string }[] {
+/**
+ * What's blocking an approval or execution (409 `data.issues[]`), if that's what this error is.
+ * Without `employee_name` the issue is about the company or the run ("Company has no operational wallet.").
+ */
+export function blockingIssues(error: unknown): { employee_name?: string; reason: string }[] {
 	if (!(error instanceof ApiError) || error.status !== 409) return [];
 	// The 409 body is { statusCode, message, data: { issues } }.
 	const body = error.data as { issues?: unknown; data?: { issues?: unknown } } | undefined;
 	const issues = body?.data?.issues ?? body?.issues;
-	return Array.isArray(issues) ? (issues as { employee_name: string; reason: string }[]) : [];
+	return Array.isArray(issues) ? (issues as { employee_name?: string; reason: string }[]) : [];
 }

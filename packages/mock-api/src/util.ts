@@ -30,8 +30,29 @@ const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 const base32 = (length: number, rand: () => number) => Array.from({ length }, () => BASE32[Math.floor(rand() * 32)]).join("");
 
-/** A Stellar-looking public key (G + 55 base32 chars). Display only: not a real account. */
-export const stellarAddress = (rand: () => number = fallback) => "G" + base32(55, rand);
+/** A well-formed Stellar public key with a valid checksum, so forms accept it. Not a real account. */
+export function stellarAddress(rand: () => number = fallback) {
+	const bytes = [6 << 3, ...Array.from({ length: 32 }, () => Math.floor(rand() * 256))];
+	let crc = 0;
+	for (const byte of bytes) {
+		crc ^= byte << 8;
+		for (let i = 0; i < 8; i++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+	}
+	bytes.push(crc & 255, crc >> 8);
+	let buffer = 0;
+	let bits = 0;
+	let address = "";
+	for (const byte of bytes) {
+		buffer = (buffer << 8) | byte;
+		bits += 8;
+		while (bits >= 5) {
+			address += BASE32.charAt((buffer >>> (bits - 5)) & 31);
+			bits -= 5;
+		}
+		buffer &= (1 << bits) - 1;
+	}
+	return address;
+}
 
 /** A Stellar-looking secret key (S + 55 base32 chars). Display only. */
 export const stellarSecret = (rand: () => number = fallback) => "S" + base32(55, rand);

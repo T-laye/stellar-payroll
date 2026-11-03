@@ -19,7 +19,31 @@ export function shortHash(value: string | null | undefined, head = 6, tail = 4) 
 /** Horizon calls lumens "native"; people know them as XLM. */
 export const assetCode = (asset: string) => (asset === "native" ? "XLM" : asset);
 
-export const isStellarAddress = (value: string) => /^G[A-Z2-7]{55}$/.test(value.trim());
+const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+/** A real G… public key: the right shape, the account version byte and a matching CRC16 checksum. */
+export function isStellarAddress(value: string) {
+	const text = value.trim();
+	if (!/^G[A-Z2-7]{55}$/.test(text)) return false;
+	const bytes: number[] = [];
+	let buffer = 0;
+	let bits = 0;
+	for (const char of text) {
+		buffer = (buffer << 5) | BASE32.indexOf(char);
+		bits += 5;
+		if (bits >= 8) {
+			bytes.push((buffer >>> (bits - 8)) & 255);
+			bits -= 8;
+			buffer &= (1 << bits) - 1;
+		}
+	}
+	let crc = 0;
+	for (const byte of bytes.slice(0, 33)) {
+		crc ^= byte << 8;
+		for (let i = 0; i < 8; i++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+	}
+	return bytes[0] === 6 << 3 && bytes[33] === (crc & 255) && bytes[34] === crc >> 8;
+}
 
 /**
  * Network fees for a payroll: Stellar charges the base fee (100 stroops = 0.00001 XLM) per
@@ -87,6 +111,14 @@ const FAILURES: Record<FailureKind, FailureInfo> = {
 	},
 };
 
+const NO_PAYOUT_WALLET: FailureInfo = {
+	kind: "balance",
+	category: "No operational wallet",
+	summary: "The company has no operational wallet to pay from.",
+	action: "Add an operational wallet on the Wallets page and fund it, then retry.",
+	needsEmployeeFix: false,
+};
+
 const CODE_TO_KIND: Record<string, FailureKind> = {
 	INVALID_WALLET: "wallet",
 	NO_TRUSTLINE: "trustline",
@@ -100,6 +132,8 @@ const CODE_TO_KIND: Record<string, FailureKind> = {
  * reads the Horizon result code in the API's free-text `error_message`.
  */
 export function failureInfo(payment: { failure_code?: string | null; error_message?: string | null }): FailureInfo {
+	// Older payments file this under INSUFFICIENT_BALANCE, but funding the wallet they have won't help.
+	if (payment.failure_code === "NO_OPERATIONAL_WALLET" || /no operational wallet/i.test(payment.error_message ?? "")) return NO_PAYOUT_WALLET;
 	const byCode = payment.failure_code ? CODE_TO_KIND[payment.failure_code] : undefined;
 	if (byCode) return FAILURES[byCode];
 	const message = (payment.error_message ?? "").toLowerCase();

@@ -36,7 +36,8 @@ import {
 	X,
 	Globe,
 } from "lucide-react";
-import { currencies } from "@/lib/constants";
+import { CompanyMemberships } from "@/features/auth/components/company-memberships";
+import { countryName, currencies } from "@/lib/constants";
 import { CompanyLogo } from "@/components/company-logo";
 
 const ProfileSchema = z.object({
@@ -54,13 +55,24 @@ const CompanyProfileSchema = z.object({
 		.optional(),
 	phone: z.string().optional(),
 	timezone: z.string().min(2, "Timezone is required"),
-	website: z.string().optional(),
+	website: z
+		.string()
+		.trim()
+		.refine((value) => !value || /^(https?:\/\/)?[^\s.]+\.\S{2,}$/i.test(value), "Enter a website address, like example.com")
+		.optional(),
 });
+
+/** The API only takes a full URL, so "example.com" gets its https:// here. */
+const fullWebsite = (value?: string) => {
+	const site = value?.trim();
+	if (!site) return undefined;
+	return /^https?:\/\//i.test(site) ? site : `https://${site}`;
+};
 
 const PasswordSchema = z
 	.object({
 		currentPassword: z.string().min(1, "Current password is required"),
-		newPassword: z.string().min(6, "Must be at least 6 characters"),
+		newPassword: z.string().min(8, "Must be at least 8 characters"),
 		confirmPassword: z.string().min(1, "Please confirm your new password"),
 	})
 	.refine((data) => data.newPassword === data.confirmPassword, {
@@ -393,6 +405,7 @@ function CompanyForm() {
 		handleSubmit,
 		reset,
 		setValue,
+		setError,
 		formState: { errors, isDirty },
 	} = useForm<CompanyProfileFormData>({
 		resolver: zodResolver(CompanyProfileSchema),
@@ -442,6 +455,11 @@ function CompanyForm() {
 	};
 
 	const onSubmit = async (data: CompanyProfileFormData) => {
+		// The API can't clear a website yet, and leaving it out would keep the old one while we say "saved".
+		if (company?.website && !data.website?.trim()) {
+			setError("website", { message: "A saved website can't be removed yet. Enter a new address instead." });
+			return;
+		}
 		try {
 			await saveCompany({
 				name: data.name.trim(),
@@ -449,7 +467,7 @@ function CompanyForm() {
 				logo_url: data.logo_url?.trim() || undefined,
 				phone: data.phone?.trim() || undefined,
 				timezone: data.timezone.trim(),
-				website: data.website?.trim() || undefined,
+				website: fullWebsite(data.website),
 			});
 			toast.success("Company profile updated", {
 				description: "Your company settings have been saved.",
@@ -492,7 +510,7 @@ function CompanyForm() {
 					<div className="relative">
 						<Globe className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 						<Input
-							value={company?.country ?? ""}
+							value={countryName(company?.country)}
 							disabled
 							className="bg-muted/40 pl-9"
 						/>
@@ -809,6 +827,8 @@ export default function SettingsPage() {
 					</SettingsCard>
 				</FadeUp>
 			)}
+
+			<CompanyMemberships />
 
 			<FadeUp delay={canManageCompany ? 120 : 60}>
 				<SettingsCard

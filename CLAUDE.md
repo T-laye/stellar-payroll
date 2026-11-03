@@ -48,7 +48,7 @@ renders agree.
   "PayOrbit" company); the mock also seeds a suspended company (`owner@northwind.example`, can't sign in). Live:
   `tlayefaah@gmail.com` is a platform admin. The mock DB lives per origin, so :3000 and :3001 have separate demo data.
 - `/admin/*` shapes are in `features/admin/types.ts`. Live caps admin pages at 100, the `role` filter takes slugs
-  (`owner`, `hr-manager`), and `GET /admin/transactions` currently answers 500 (detail works); the UI says so plainly.
+  (`owner`, `hr-manager`).
 - Writes ask first (`ConfirmDialog`): suspend/reactivate a company, deactivate/reactivate a user, grant/revoke platform
   admin. The API refuses suspending your own company, deactivating yourself and removing the last admin; the UI
   disables those too. Don't run writes against production accounts while testing.
@@ -186,7 +186,8 @@ scroll.
 7. `recharts` stays on 2.x (shadcn `chart.tsx`).
 8. `packages/ui` type-checks with `noUncheckedIndexedAccess`; the apps don't.
 9. Date fields in request bodies are RFC 3339 (`2026-10-01T00:00:00Z`); a bare `YYYY-MM-DD` gets a detail-less
-   `400 bad_request` from the live API (the mock mirrors this). Unknown routes are 404.
+   `400 bad_request` from the live API (the mock mirrors this). Unknown routes are 404. Countries are two-letter ISO
+   codes in requests (`countries` in `lib/constants.ts`); older records hold names, so display with `countryName`.
 10. Live differs from the mock in field names; `features/payroll/normalize.ts` maps them (review items' `line_item_id`,
     schedule members `{ id, name, amount, status }`, one transaction row per retry attempt). The live employee list has no
     `wallet` field (single GETs do): use `hasWallet()` from `lib/status.ts`, never `!employee.wallet`.

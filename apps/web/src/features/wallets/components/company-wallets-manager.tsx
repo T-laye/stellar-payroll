@@ -19,7 +19,7 @@ import {
 } from "@/features/wallets/hooks";
 import { useAuthStore } from "@/features/auth/store";
 import { newIdempotencyKey } from "@/lib/api/request";
-import { assetCode } from "@/lib/stellar";
+import { assetCode, isStellarAddress } from "@/lib/stellar";
 import { useWalletStore } from "@/features/wallets/store";
 import { formatStatAmount, formatStatDate, formatStatNumber } from "@/lib/format";
 
@@ -31,7 +31,6 @@ function maskAddress(value: string) {
 	return `${value.slice(0, 6)}...${value.slice(-6)}`;
 }
 
-const STELLAR_PUBLIC_KEY_PATTERN = /^G[A-Z2-7]{55}$/;
 const STELLAR_SECRET_KEY_PATTERN = /^S[A-Z2-7]{55}$/;
 const supportedCompanyWalletTypes = ["OPERATIONAL", "ESCROW", "EXTERNAL"] as const;
 type CompanyWalletType = (typeof supportedCompanyWalletTypes)[number];
@@ -40,7 +39,12 @@ export function CompanyWalletsManager() {
 	const companyId = useAuthStore((state) => state.user?.company_id);
 	const wallets = useWalletStore((state) => state.wallets);
 	const selectedWallet = useWalletStore((state) => state.selectedWallet);
-	const { isLoading: isWalletsLoading, isError: isWalletsError } = useCompanyWallets(companyId ?? undefined);
+	const {
+		isLoading: isWalletsLoading,
+		isError: isWalletsError,
+		isFetching: isWalletsFetching,
+		refetch: refetchWallets,
+	} = useCompanyWallets(companyId ?? undefined);
 	const { data: walletStatsResponse } = useCompanyWallet(companyId || "");
 	const { mutateAsync: createCompanyWallet, isPending: isCreatingWallet } = useCreateCompanyWallet(companyId ?? undefined);
 	const { mutateAsync: addWalletTrustline, isPending: isAddingTrustline } = useAddCompanyWalletTrustline(companyId ?? "");
@@ -105,8 +109,14 @@ export function CompanyWalletsManager() {
 			return;
 		}
 
-		if (stellarAddress && !STELLAR_PUBLIC_KEY_PATTERN.test(stellarAddress)) {
+		if (stellarAddress && !isStellarAddress(stellarAddress)) {
 			toast.error("Enter a valid Stellar public key starting with G.");
+			return;
+		}
+
+		// The API refuses this too (422); asking here keeps the form open with a clearer way forward.
+		if (walletType === "OPERATIONAL" && stellarAddress && !secretKey) {
+			toast.error("Add this wallet's secret key, or leave both fields blank for PayOrbit to create a wallet.");
 			return;
 		}
 
@@ -147,7 +157,7 @@ export function CompanyWalletsManager() {
 			return;
 		}
 
-		if (!STELLAR_PUBLIC_KEY_PATTERN.test(trustlineForm.asset_issuer.trim())) {
+		if (!isStellarAddress(trustlineForm.asset_issuer)) {
 			toast.error("Enter a valid Stellar issuer public key starting with G.");
 			return;
 		}
@@ -230,6 +240,28 @@ export function CompanyWalletsManager() {
 					})}
 				</div>
 
+				{!isWalletsLoading && !isWalletsError && !wallets.some((wallet) => wallet.wallet_type === "OPERATIONAL") && (
+					<div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+						<span className="font-semibold">Payroll can&apos;t pay yet.</span> It pays only from an operational wallet. Use Add Wallet, choose
+						OPERATIONAL, and leave the address and secret key blank for PayOrbit to create one you can fund.
+					</div>
+				)}
+
+				{!isWalletsLoading &&
+					!isWalletsError &&
+					wallets.some((wallet) => wallet.wallet_type === "OPERATIONAL") &&
+					!wallets.some((wallet) => wallet.wallet_type === "OPERATIONAL" && wallet.is_funded) && (
+						<div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+							<p className="min-w-0 flex-1">
+								<span className="font-semibold">Payroll can&apos;t pay yet.</span> Your operational wallet isn&apos;t funded. If you&apos;ve just funded
+								it, it can take up to a minute to show here.
+							</p>
+							<Button variant="outline" size="sm" disabled={isWalletsFetching} onClick={() => refetchWallets()}>
+								{isWalletsFetching ? <Loader2 className="animate-spin" /> : <RefreshCcw />} Check again
+							</Button>
+						</div>
+					)}
+
 				{companyWalletTypeStats.length > 0 && (
 					<div className="flex flex-wrap gap-2">
 						{companyWalletTypeStats.map(([walletType, count]) => (
@@ -269,6 +301,16 @@ export function CompanyWalletsManager() {
 												<Badge variant={wallet.is_funded ? "secondary" : "outline"}>
 													{wallet.is_funded ? "Funded" : "Unfunded"}
 												</Badge>
+												{wallet.network === "TESTNET" && !wallet.is_funded && (
+													<a
+														href={`https://friendbot.stellar.org/?addr=${wallet.stellar_address}`}
+														target="_blank"
+														rel="noreferrer"
+														className="text-xs font-medium text-primary hover:underline"
+													>
+														Get test XLM
+													</a>
+												)}
 											</div>
 											<div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
 												<span className="font-mono text-foreground">{maskAddress(wallet.stellar_address)}</span>
@@ -367,7 +409,7 @@ export function CompanyWalletsManager() {
 					<DialogHeader>
 						<DialogTitle>Create Company Wallet</DialogTitle>
 						<DialogDescription>
-							Add an existing Stellar wallet for this company and store its operational metadata.
+							Payroll pays from an OPERATIONAL wallet. Leave the address and secret key blank and PayOrbit creates one for you to fund.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -394,6 +436,11 @@ export function CompanyWalletsManager() {
 									))}
 								</SelectContent>
 							</Select>
+							{createForm.wallet_type === "EXTERNAL" && (
+								<p className="text-xs text-amber-700">
+									PayOrbit only tracks an external wallet and holds no key for it, so payroll can&apos;t pay from it.
+								</p>
+							)}
 						</div>
 
 						<div className="space-y-1.5">
@@ -409,7 +456,7 @@ export function CompanyWalletsManager() {
 										}))
 									}
 									placeholder={
-										createForm.wallet_type === "EXTERNAL" ? "Required for external wallets" : "Optional existing public key"
+										createForm.wallet_type === "EXTERNAL" ? "Required for external wallets" : "Blank creates a new wallet"
 									}
 								/>
 								<ConnectWalletButton
@@ -431,7 +478,7 @@ export function CompanyWalletsManager() {
 										secret_key: event.target.value,
 									}))
 								}
-								placeholder="Optional import secret key"
+								placeholder={createForm.stellar_address.trim() ? "Needed to pay from this wallet" : "Optional import secret key"}
 							/>
 						</div>
 					</div>

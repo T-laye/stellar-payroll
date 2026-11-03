@@ -35,6 +35,7 @@ function session(userId: string) {
 			},
 			company_id: company.id,
 			company_slug: company.slug,
+			companies: [{ company_id: company.id, company_name: company.name, company_slug: company.slug, role: role.name }],
 			redirect_url: `https://${company.slug}.payorbit.com`,
 			user: {
 				id: user.id,
@@ -74,6 +75,9 @@ route("POST", "/auth/register", "public", ({ body }) => {
 		"company_timezone",
 		"role_slug",
 	);
+	if (!/^[A-Za-z]{2}$/.test(str(body.company_country))) {
+		throw new HttpError(422, "Company country must be a two-letter country code such as NG or US");
+	}
 	if (findByEmail(body.email)) throw new HttpError(409, "an account with this email already exists");
 	const slug = str(body.company_slug).toLowerCase();
 	if (read().companies.some((c) => c.slug === slug)) throw new HttpError(409, "this company slug is taken");
@@ -203,11 +207,28 @@ route("POST", "/auth/complete-profile", "public", ({ body }) => {
 
 route("PATCH", "/auth/change-password", "user", (ctx) => {
 	required(ctx.body, "current_password", "new_password");
-	if (me(ctx).password !== ctx.body.current_password) throw new HttpError(400, "current password is incorrect");
+	if (me(ctx).password !== ctx.body.current_password) throw new HttpError(422, "Current password is incorrect");
 	update((db) => {
 		db.users.find((u) => u.id === me(ctx).id)!.password = str(ctx.body.new_password);
 	});
 	return ok(null, "password changed");
+});
+
+// Each demo person belongs to one company, so nobody here has invites or a company to switch to.
+route("GET", "/auth/memberships", "user", (ctx) => ok(session(me(ctx).id).companies));
+route("DELETE", "/auth/memberships/:companyId", "user", (ctx) => {
+	if (ctx.params.companyId !== me(ctx).company_id) throw new HttpError(404, "You are not a member of that company");
+	throw new HttpError(409, "You cannot leave your only company");
+});
+route("GET", "/auth/invitations", "user", () => ok([]));
+route("POST", "/auth/invitations/accept", "user", ({ body }) => {
+	required(body, "company_id");
+	throw new HttpError(404, "No pending invitation from that company");
+});
+route("POST", "/auth/switch-company", "user", (ctx) => {
+	required(ctx.body, "company_id");
+	if (ctx.body.company_id !== me(ctx).company_id) throw new HttpError(403, "you are not a member of that company");
+	return ok(session(me(ctx).id));
 });
 
 // Public so signing out still succeeds after "Reset demo data" invalidated the session.

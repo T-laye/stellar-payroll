@@ -1,19 +1,56 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
-import { changeVerificationEmail, completeProfile, forgotPassword, resetPassword, resendVerificationEmail, signIn, signup, verifyEmail } from "@/features/auth/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { acceptInvitation, changeVerificationEmail, completeProfile, forgotPassword, getInvitations, leaveCompany, resetPassword, resendVerificationEmail, signIn, signup, switchCompany, verifyEmail } from "@/features/auth/api";
 import { ChangeVerificationEmailFormData, ForgotPasswordFormData, ResetPasswordFormData, SigninFormData, SignupFormData } from "@/features/auth/schema";
 import { useAuthStore } from "@/features/auth/store";
 
 export function useLogin() {
 	return useMutation({
 		mutationKey: ["auth", "login"],
-		mutationFn: (payload: SigninFormData) => signIn(payload),
+		mutationFn: (payload: SigninFormData & { company_id?: string }) => signIn(payload),
 		onSuccess: (response, variables) => {
 			useAuthStore.getState().hydrateAuth(response, {
 				email: variables.email,
 			});
 		},
+	});
+}
+
+/** Pending invites to other companies. A 403 means there is one, but this person's email isn't verified yet. */
+export function useInvitations() {
+	return useQuery({
+		queryKey: ["auth", "invitations"],
+		queryFn: getInvitations,
+		staleTime: 5 * 60_000,
+		retry: false,
+	});
+}
+
+export function useAcceptInvitation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationKey: ["auth", "invitations", "accept"],
+		mutationFn: (companyId: string) => acceptInvitation(companyId),
+		onSuccess: (companies) => {
+			if (companies?.length) useAuthStore.getState().setCompanies(companies);
+			queryClient.invalidateQueries({ queryKey: ["auth", "invitations"] });
+		},
+	});
+}
+
+export function useLeaveCompany() {
+	return useMutation({
+		mutationKey: ["auth", "memberships", "leave"],
+		mutationFn: (companyId: string) => leaveCompany(companyId),
+	});
+}
+
+export function useSwitchCompany() {
+	return useMutation({
+		mutationKey: ["auth", "switch-company"],
+		mutationFn: (companyId: string) => switchCompany(companyId),
+		onSuccess: (response) => useAuthStore.getState().applyCompanySwitch(response),
 	});
 }
 

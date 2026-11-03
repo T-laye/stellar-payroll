@@ -19,9 +19,20 @@ export interface AuthUserResponse {
 	company_slug?: string;
 }
 
+/** A company this person belongs to (`GET /auth/memberships`, and `companies` on login). */
+export interface CompanyMembership {
+	company_id: string;
+	company_name: string;
+	company_slug: string;
+	role: string;
+}
+
 export interface AuthResponseData {
 	company_id?: string;
 	company_slug?: string;
+	companies?: CompanyMembership[];
+	/** More than one company and no `company_id` sent: no session yet, the person picks one and logs in again. */
+	requires_company_selection?: boolean;
 	redirect_url?: string;
 	session?: AuthSessionResponse;
 	verify_email_token?: string;

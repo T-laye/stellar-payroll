@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/features/auth/store";
+import { ApiError } from "@/lib/api/client";
 import { useWalletStore } from "@/features/wallets/store";
 import { addCompanyWalletTrustline, changeMyWalletPin, createCompanyWallet, deleteMyWallet, extractWalletPrivateKey, getCompanyWallet, getCompanyWallets, getCompanyWalletStats, getMyWallet, getMyWalletPrivateKey, setMyWalletPin, transferFromMyWallet, verifyMyWalletPin } from "@/features/wallets/api";
 import { type AddWalletTrustlinePayload, type ChangeWalletPinPayload, type CreateCompanyWalletPayload, type SetWalletPinPayload, type TransferFromWalletPayload } from "@/features/wallets/types";
@@ -20,7 +21,7 @@ function requireCompanyId(companyId: string | null) {
 	return companyId;
 }
 
-const WALLET_PIN_WINDOW_MS = 15 * 60 * 1000;
+export const WALLET_PIN_WINDOW_MS = 15 * 60 * 1000;
 
 export function hasFreshWalletVerification(pinVerifiedAt?: string | null) {
 	if (!pinVerifiedAt) {
@@ -114,6 +115,8 @@ export function useCreateCompanyWallet(companyId?: string) {
 			queryClient.invalidateQueries({
 				queryKey: ["wallets", "list", resolvedCompanyId],
 			});
+			// A run's review says whether the company can pay it.
+			queryClient.invalidateQueries({ queryKey: ["payroll", "run"] });
 			queryClient.invalidateQueries({
 				queryKey: ["wallets", "stats", resolvedCompanyId],
 			});
@@ -164,6 +167,7 @@ export function useAddCompanyWalletTrustline(companyId?: string) {
 
 export function useMyWalletDetails(enabled = true) {
 	const setMyWallet = useWalletStore((state) => state.setMyWallet);
+	const clearMyWalletAccess = useWalletStore((state) => state.clearMyWalletAccess);
 	const pinVerifiedAt = useWalletStore((state) => state.pinVerifiedAt);
 	const isVerified = hasFreshWalletVerification(pinVerifiedAt);
 
@@ -172,6 +176,8 @@ export function useMyWalletDetails(enabled = true) {
 		queryFn: getMyWallet,
 		enabled: enabled && isVerified,
 		staleTime: 30_000,
+		// "No wallet linked" and "verify your PIN" won't change on a retry; only a server or network failure might.
+		retry: (count, error) => !(error instanceof ApiError && error.status >= 400 && error.status < 500) && count < 2,
 	});
 
 	useEffect(() => {
@@ -179,6 +185,12 @@ export function useMyWalletDetails(enabled = true) {
 			setMyWallet(query.data.data.data);
 		}
 	}, [query.data, setMyWallet]);
+
+	// The API's PIN window ended before ours (the PIN changed in another tab, say): ask for it again.
+	const pinRejected = query.error instanceof ApiError && query.error.status === 403;
+	useEffect(() => {
+		if (pinRejected) clearMyWalletAccess();
+	}, [pinRejected, clearMyWalletAccess]);
 
 	return query;
 }

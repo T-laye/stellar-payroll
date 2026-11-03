@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { type WalletStats } from "@/features/stats/types";
 import { type CompanyWallet, type CompanyWalletDetail, type MyWalletDetail } from "@/features/wallets/types";
 
@@ -20,7 +21,7 @@ interface WalletState {
 	clearWallets: () => void;
 }
 
-export const useWalletStore = create<WalletState>()((set) => ({
+export const useWalletStore = create<WalletState>()(persist((set) => ({
 	stats: null,
 	wallets: [],
 	selectedWallet: null,
@@ -68,4 +69,9 @@ export const useWalletStore = create<WalletState>()((set) => ({
 			myPrivateKey: null,
 			pinVerifiedAt: null,
 		}),
+}), {
+	name: "payorbit_wallet_access",
+	storage: createJSONStorage(() => sessionStorage),
+	// Only when the PIN was verified, so a reload keeps the API's 15-minute window. Never balances or keys.
+	partialize: (state) => ({ pinVerifiedAt: state.pinVerifiedAt }),
 }));

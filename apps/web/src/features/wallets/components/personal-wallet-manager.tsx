@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Copy, KeyRound, Loader2, Send, ShieldCheck, Trash2, Wallet } from "lucide-react";
 import { toast } from "@repo/ui/sonner";
@@ -13,9 +13,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@repo/ui/input";
 import { Skeleton } from "@repo/ui/skeleton";
 import { Textarea } from "@repo/ui/textarea";
+import { hasAnyPermission, useAuthStore } from "@/features/auth/store";
 import { useMyStats } from "@/features/stats/hooks";
+import { ApiError } from "@/lib/api/client";
 import {
 	hasFreshWalletVerification,
+	WALLET_PIN_WINDOW_MS,
 	useChangeMyWalletPin,
 	useDeleteMyWallet,
 	useMyWalletDetails,
@@ -29,6 +32,8 @@ import { formatMoney, formatStatDate, formatStatNumber } from "@/lib/format";
 import { newIdempotencyKey } from "@/lib/api/request";
 import { assetCode } from "@/lib/stellar";
 import { StatCard } from "@/components/stat-card";
+
+const VALID_PIN = /^\d{4,6}$/;
 
 function formatDateTime(value: string | null | undefined) {
 	if (!value) {
@@ -56,6 +61,16 @@ export function PersonalWalletManager() {
 	const queryClient = useQueryClient();
 	const pinVerifiedAt = useWalletStore((state) => state.pinVerifiedAt);
 	const hasVerifiedAccess = hasFreshWalletVerification(pinVerifiedAt);
+	const canViewCompanyWallets = useAuthStore((state) => hasAnyPermission(state.user, ["wallets:read", "wallets:create", "wallets:manage"]));
+	const [, setExpiredAt] = useState(0);
+	const accessEndsAt = pinVerifiedAt ? new Date(pinVerifiedAt).getTime() + WALLET_PIN_WINDOW_MS : 0;
+
+	// Lock the page when the window ends, instead of waiting for the next click to find out.
+	useEffect(() => {
+		if (!accessEndsAt) return;
+		const timer = setTimeout(() => setExpiredAt(accessEndsAt), Math.max(0, accessEndsAt - Date.now()));
+		return () => clearTimeout(timer);
+	}, [accessEndsAt]);
 
 	const myStatsQuery = useMyStats();
 	const myWalletQuery = useMyWalletDetails(hasVerifiedAccess);
@@ -99,8 +114,8 @@ export function PersonalWalletManager() {
 	};
 
 	const handleVerifyPin = async () => {
-		if (!verifyPin.trim()) {
-			toast.error("Enter your wallet PIN first.");
+		if (!VALID_PIN.test(verifyPin.trim())) {
+			toast.error("Your wallet PIN is 4 to 6 digits.");
 			return;
 		}
 
@@ -116,8 +131,8 @@ export function PersonalWalletManager() {
 	};
 
 	const handleSetPin = async () => {
-		if (!setPinForm.pin.trim()) {
-			toast.error("Wallet PIN is required.");
+		if (!VALID_PIN.test(setPinForm.pin.trim())) {
+			toast.error("Choose a PIN of 4 to 6 digits.");
 			return;
 		}
 
@@ -134,6 +149,11 @@ export function PersonalWalletManager() {
 	const handleChangePin = async () => {
 		if (!changePinForm.current_pin.trim() || !changePinForm.new_pin.trim()) {
 			toast.error("Both PIN fields are required.");
+			return;
+		}
+
+		if (!VALID_PIN.test(changePinForm.new_pin.trim())) {
+			toast.error("Choose a new PIN of 4 to 6 digits.");
 			return;
 		}
 
@@ -234,7 +254,7 @@ export function PersonalWalletManager() {
 							<h3 className="text-base font-semibold text-foreground">Protected Wallet Access</h3>
 							<p className="mt-1 text-sm text-muted-foreground">
 								{hasVerifiedAccess
-									? `PIN verified. Access window opened at ${formatDateTime(pinVerifiedAt)}.`
+									? `PIN verified. Your wallet stays unlocked until ${new Date(accessEndsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}.`
 									: "Verify your wallet PIN to unlock balances, private key access, transfers, and wallet removal."}
 							</p>
 						</div>
@@ -250,21 +270,27 @@ export function PersonalWalletManager() {
 						</div>
 					</div>
 
-					<div className="mt-4 flex flex-wrap items-end gap-3">
-						<div className="min-w-55 flex-1 space-y-1.5">
-							<label className="text-sm font-medium text-foreground">Verify Wallet PIN</label>
-							<Input
-								type="password"
-								maxLength={6}
-								value={verifyPin}
-								onChange={(event) => setVerifyPin(event.target.value)}
-								placeholder="Enter 4 to 6 digits"
-							/>
+					{!hasVerifiedAccess && (
+						<div className="mt-4 flex flex-wrap items-end gap-3">
+							<div className="min-w-55 flex-1 space-y-1.5">
+								<label className="text-sm font-medium text-foreground">Verify Wallet PIN</label>
+								<Input
+									type="password"
+									inputMode="numeric"
+									maxLength={6}
+									value={verifyPin}
+									onChange={(event) => setVerifyPin(event.target.value)}
+									onKeyDown={(event) => {
+										if (event.key === "Enter") void handleVerifyPin();
+									}}
+									placeholder="Enter 4 to 6 digits"
+								/>
+							</div>
+							<Button onClick={handleVerifyPin} disabled={isVerifyingPin}>
+								{isVerifyingPin ? "Verifying..." : "Verify PIN"}
+							</Button>
 						</div>
-						<Button onClick={handleVerifyPin} disabled={isVerifyingPin}>
-							{isVerifyingPin ? "Verifying..." : "Verify PIN"}
-						</Button>
-					</div>
+					)}
 				</Card>
 
 				<Card className="p-5 sm:p-6">
@@ -368,11 +394,28 @@ export function PersonalWalletManager() {
 						</div>
 					) : myWalletQuery.isError ? (
 						<div className="mt-5">
-							<EmptyState
-								icon={Wallet}
-								title="Wallet unavailable"
-								description="No linked wallet could be returned for this account right now."
-							/>
+							{myWalletQuery.error instanceof ApiError && myWalletQuery.error.status === 404 ? (
+								<EmptyState
+									icon={Wallet}
+									title="No wallet linked to your account"
+									description={
+										canViewCompanyWallets
+											? "This tab shows the wallet on your own employee record. Payroll pays from the company's wallets: see the Company wallets tab for their balances."
+											: "Your wallet appears here once your employer links one to your employee record."
+									}
+								/>
+							) : (
+								<EmptyState
+									icon={Wallet}
+									title="Couldn't load your wallet"
+									description={myWalletQuery.error instanceof Error ? myWalletQuery.error.message : "Please try again."}
+									action={
+										<Button variant="outline" size="sm" onClick={() => myWalletQuery.refetch()}>
+											Try again
+										</Button>
+									}
+								/>
+							)}
 						</div>
 					) : null}
 				</Card>

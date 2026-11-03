@@ -6,6 +6,7 @@ import { ExternalLink } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import Logo from "@/components/Logo";
 import { CompanyLogo } from "@/components/company-logo";
+import { CompanySwitcher } from "@/features/auth/components/company-switcher";
 import { isPayrollAdmin, useAuthStore } from "@/features/auth/store";
 import { useCompanyDetails } from "@/features/company/hooks";
 import { useUnreadCount } from "@/features/notifications/hooks";
@@ -73,6 +74,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 				))}
 			</nav>
 			<div className="space-y-3 border-t border-sidebar-border p-4">
+				<CompanySwitcher />
 				{isPayrollAdmin(user) && <SidebarCompany />}
 				{USE_MOCK_API && (
 					<p className="rounded-lg bg-sidebar-accent px-3 py-2 text-xs text-sidebar-foreground">

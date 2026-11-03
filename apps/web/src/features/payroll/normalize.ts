@@ -24,6 +24,10 @@ export function normalizeReview(response: Envelope<RunReview>): Envelope<RunRevi
 	return { ...response, data: { ...review, items } };
 }
 
+/** Why the company itself can't pay this run (no operational wallet, or an empty one), if that's blocking it. */
+export const walletIssue = (review?: Pick<RunReview, "issues">) =>
+	review?.issues?.find((issue) => !issue.employee_name && /wallet/i.test(issue.reason));
+
 /**
  * Schedules: live `upcoming` cycles carry no draft date or run, and members are `{ id, name, amount, status }`.
  * The draft date follows the scheduler's rule (3 days before the pay date).

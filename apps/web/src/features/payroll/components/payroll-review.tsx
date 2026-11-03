@@ -13,9 +13,10 @@ import { SectionCard } from "@/components/section-card";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/states";
 import { TonePill } from "@/components/status-pill";
 import { useRemoveLineItem, useRunReview, useUpdateLineItem } from "@/features/payroll/hooks";
+import { walletIssue } from "@/features/payroll/normalize";
 import type { PayrollRun, RunReview } from "@/features/payroll/types";
 import { errorMessage } from "@/lib/api/request";
-import { isPositiveAmount, toInputAmount } from "@/lib/decimal";
+import { amountProblem, toInputAmount } from "@/lib/decimal";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { routes } from "@/lib/routes";
 
@@ -35,12 +36,15 @@ export function PayrollReview({
 	editable: boolean;
 	onEditSelection?: () => void;
 }) {
-	const { data: review, isLoading, isError, refetch } = useRunReview(run.id);
+	const { data: review, isLoading, isError, isFetching, refetch } = useRunReview(run.id);
 	const items = review?.items ?? [];
-	// Issues only block approval, so only drafts show them. An empty draft already shows its empty state.
-	const blocking = run.status === "DRAFT" ? (review?.issues ?? []) : [];
+	const companyIssue = walletIssue(review);
+	// Drafts show everything that blocks approval; an approved run can still be stopped by the company's wallet.
+	// An empty draft already shows its empty state.
+	const blocking = run.status === "DRAFT" ? (review?.issues ?? []) : run.status === "APPROVED" && companyIssue ? [companyIssue] : [];
 	const issues = blocking.filter((i) => i.employee_name);
 	const runIssues = items.length > 0 ? blocking.filter((i) => !i.employee_name) : [];
+	const walletBlocked = !!companyIssue && runIssues.includes(companyIssue);
 
 	return (
 		// Sized by its own width, not the viewport: inside the wizard (next to the stepper) the summary
@@ -89,12 +93,14 @@ export function PayrollReview({
 								<p className="font-medium text-foreground">
 									{issues.length > 0
 										? `${issues.length} employee${issues.length === 1 ? " has" : "s have"} incomplete payment information.`
-										: "This payroll can't be approved yet."}
+										: run.status === "APPROVED"
+											? "This payroll can't be paid yet."
+											: "This payroll can't be approved yet."}
 								</p>
 								{issues.length > 0 && (
 									<p className="text-muted-foreground">
-										{issues.map((i) => `${i.employee_name}: ${i.reason.replace(/\.$/, "").toLowerCase()}`).join(" · ")}. Fix them
-										or remove them from this payroll; it can&apos;t be approved until then.
+										{issues.map((i) => `${i.employee_name}: ${i.reason}`).join(" · ")} Fix them or remove them from this payroll; it
+										can&apos;t be approved until then.
 									</p>
 								)}
 								{runIssues.map((i) => (
@@ -103,17 +109,30 @@ export function PayrollReview({
 									</p>
 								))}
 							</div>
-							{issues.length === 1 && issues[0]!.employee_id && (
-								<Button asChild size="sm" variant="outline" className="shrink-0">
-									<Link href={routes.employees.edit(issues[0]!.employee_id)}>Resolve now</Link>
-								</Button>
-							)}
+							<div className="flex shrink-0 flex-wrap gap-2">
+								{issues.length === 1 && issues[0]!.employee_id && (
+									<Button asChild size="sm" variant="outline">
+										<Link href={routes.employees.edit(issues[0]!.employee_id)}>Resolve now</Link>
+									</Button>
+								)}
+								{walletBlocked && (
+									<>
+										{/* A newly funded wallet takes up to a minute to count. */}
+										<Button size="sm" variant="ghost" disabled={isFetching} onClick={() => refetch()}>
+											{isFetching && <Loader2 className="animate-spin" />} Check again
+										</Button>
+										<Button asChild size="sm" variant="outline">
+											<Link href={routes.dashboardRoutes.WALLETS}>Go to wallets</Link>
+										</Button>
+									</>
+								)}
+							</div>
 						</div>
 					)}
 					{review?.ready && (
 						<div className="flex items-center gap-3 rounded-xl border border-success/25 bg-success/8 p-4 text-sm">
 							<CheckCircle2 className="size-5 shrink-0 text-success" />
-							<p className="text-foreground">Every employee has a wallet and an amount. This payroll is ready to approve.</p>
+							<p className="text-foreground">Every employee has a wallet and an amount, and the company wallet can pay. This payroll is ready to approve.</p>
 						</div>
 					)}
 
@@ -188,8 +207,9 @@ function ReviewRow({ item, run, editable }: { item: ReviewItem; run: PayrollRun;
 
 	const save = () => {
 		if (Number(amount) === Number(item.amount)) return;
-		if (!isPositiveAmount(amount)) {
-			toast.error("Amount must be greater than zero");
+		const problem = amountProblem(amount);
+		if (problem) {
+			toast.error(problem);
 			setAmount(toInputAmount(item.amount));
 			return;
 		}

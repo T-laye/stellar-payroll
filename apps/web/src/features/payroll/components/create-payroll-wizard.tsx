@@ -31,7 +31,8 @@ import {
 } from "@/features/payroll/hooks";
 import type { Asset } from "@/features/payroll/types";
 import { errorMessage, newIdempotencyKey } from "@/lib/api/request";
-import { isPositiveAmount, toInputAmount } from "@/lib/decimal";
+import { walletIssue } from "@/features/payroll/normalize";
+import { amountProblem, toInputAmount } from "@/lib/decimal";
 import { formatDateTime, formatMoney, toDateInput } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { useMountTime } from "@/lib/use-now";
@@ -98,12 +99,20 @@ export function CreatePayrollWizard() {
 
 	// Active and pending people can be picked; pending ones (no wallet yet) are flagged in the review.
 	const payable = (employees.data ?? []).filter((e) => e.status === "ACTIVE" || e.status === "PENDING");
-	// First visit to the picker: everyone payable who is paid in this cycle's asset.
+	// First visit to the picker: active people paid in this cycle's asset. Pending ones can't be paid yet, so they're opt-in.
 	const picked =
 		selection ??
-		Object.fromEntries(payable.filter((e) => e.salary_currency === details.currency).map((e) => [e.id, toInputAmount(e.salary_amount)]));
+		Object.fromEntries(
+			payable
+				.filter((e) => e.status === "ACTIVE" && e.salary_currency === details.currency)
+				.map((e) => [e.id, toInputAmount(e.salary_amount)]),
+		);
 	const busy = createRun.isPending || syncItems.isPending || updateRun.isPending || approve.isPending || payNow.isPending;
 	const incomplete = review.data ? review.data.issues.length + (review.data.employee_count ? 0 : 1) : 0;
+	const payoutBlocked = incomplete > 0;
+	const blockedReason = walletIssue(review.data)?.reason ?? "Fix the incomplete payment information first.";
+	// Payment options a person can't use stay visible with their reason, and the button waits for one they can.
+	const outcomeAllowed = outcome === "draft" || (!payoutBlocked && canApprove && (outcome === "schedule" || canExecute));
 
 	const validateDetails = () => {
 		const next: Record<string, string> = {};
@@ -119,8 +128,8 @@ export function CreatePayrollWizard() {
 	const toReview = async () => {
 		const chosen = Object.entries(picked);
 		if (chosen.length === 0) return toast.error("Select at least one employee");
-		const bad = chosen.find(([, amount]) => !isPositiveAmount(amount));
-		if (bad) return toast.error("Every selected employee needs an amount greater than zero");
+		const problem = chosen.map(([, amount]) => amountProblem(amount)).find(Boolean);
+		if (problem) return toast.error(`Check the amounts: ${problem.charAt(0).toLowerCase()}${problem.slice(1)}`);
 		const lineItems = chosen.map(([employee_id, amount]) => ({ employee_id, amount }));
 		try {
 			if (!runId) {
@@ -154,9 +163,7 @@ export function CreatePayrollWizard() {
 	};
 
 	const confirm = async () => {
-		if (!run.data) return;
-		const allowed = outcome === "draft" || (incomplete === 0 && canApprove && (outcome === "schedule" || canExecute));
-		if (!allowed) return toast.error("Choose one of the available options");
+		if (!run.data || !outcomeAllowed) return;
 		try {
 			if (outcome === "pay") await payNow.mutateAsync({ run: run.data, key: confirmKey });
 			if (outcome === "schedule") await approve.mutateAsync({ id: run.data.id, key: confirmKey });
@@ -370,33 +377,23 @@ export function CreatePayrollWizard() {
 								value="pay"
 								current={outcome}
 								onSelect={setOutcome}
-								disabled={!canApprove || !canExecute || incomplete > 0}
+								disabled={!canApprove || !canExecute || payoutBlocked}
 								icon={Send}
 								title="Approve and pay now"
 								description="Payments are sent on Stellar right away and settle in seconds."
 								reason={
-									!canApprove || !canExecute
-										? "Requires approve and execute permissions."
-										: incomplete > 0
-											? "Fix the incomplete payment information first."
-											: undefined
+									!canApprove || !canExecute ? "Requires approve and execute permissions." : payoutBlocked ? blockedReason : undefined
 								}
 							/>
 							<OutcomeOption
 								value="schedule"
 								current={outcome}
 								onSelect={setOutcome}
-								disabled={!canApprove || incomplete > 0}
+								disabled={!canApprove || payoutBlocked}
 								icon={CalendarCheck}
 								title={`Approve and schedule for ${formatDateTime(run.data.scheduled_at)}`}
 								description="Approved payroll is paid automatically at the scheduled time. You can cancel it before then."
-								reason={
-									!canApprove
-										? "Requires the approve permission."
-										: incomplete > 0
-											? "Fix the incomplete payment information first."
-											: undefined
-								}
+								reason={!canApprove ? "Requires the approve permission." : payoutBlocked ? blockedReason : undefined}
 							/>
 							<OutcomeOption
 								value="draft"
@@ -413,7 +410,7 @@ export function CreatePayrollWizard() {
 						</fieldset>
 						{footer(
 							() => setStep(2),
-							<Button onClick={confirm} disabled={busy}>
+							<Button onClick={confirm} disabled={busy || !outcomeAllowed} title={outcomeAllowed ? undefined : "Choose one of the available options"}>
 								{busy && <Loader2 className="animate-spin" />}
 								{outcome === "pay"
 									? `Pay ${formatMoney(run.data.total_amount, run.data.currency)}`

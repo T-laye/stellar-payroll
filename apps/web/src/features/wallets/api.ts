@@ -118,56 +118,48 @@ export async function addCompanyWalletTrustline(
 	}
 }
 
+// Every failure below becomes an ApiError with the API's own wording ("incorrect PIN"), not axios's
+// "Request failed with status code 401".
 export function getMyWallet() {
-	return axiosInstance.get<MyWalletResponse>(
-		MY_WALLET_ENDPOINTS.detail,
-		getAuthOptions(),
-	);
+	return axiosInstance
+		.get<MyWalletResponse>(MY_WALLET_ENDPOINTS.detail, getAuthOptions())
+		.catch(normalizeWalletError);
 }
 
 export function deleteMyWallet() {
-	return axiosInstance.delete<GenericWalletResponse>(
-		MY_WALLET_ENDPOINTS.detail,
-		getAuthOptions(),
-	);
+	return axiosInstance
+		.delete<GenericWalletResponse>(MY_WALLET_ENDPOINTS.detail, getAuthOptions())
+		.catch(normalizeWalletError);
 }
 
 export function setMyWalletPin(payload: SetWalletPinPayload) {
-	return axiosInstance.post<GenericWalletResponse>(
-		MY_WALLET_ENDPOINTS.pin,
-		payload,
-		getAuthOptions(),
-	);
+	return axiosInstance
+		.post<GenericWalletResponse>(MY_WALLET_ENDPOINTS.pin, payload, getAuthOptions())
+		.catch(normalizeWalletError);
 }
 
 export function changeMyWalletPin(payload: ChangeWalletPinPayload) {
-	return axiosInstance.patch<GenericWalletResponse>(
-		MY_WALLET_ENDPOINTS.pin,
-		payload,
-		getAuthOptions(),
-	);
+	return axiosInstance
+		.patch<GenericWalletResponse>(MY_WALLET_ENDPOINTS.pin, payload, getAuthOptions())
+		.catch(normalizeWalletError);
 }
 
 export function verifyMyWalletPin(payload: SetWalletPinPayload) {
-	return axiosInstance.post<GenericWalletResponse>(
-		MY_WALLET_ENDPOINTS.verifyPin,
-		payload,
-		getAuthOptions(),
-	);
+	return axiosInstance
+		.post<GenericWalletResponse>(MY_WALLET_ENDPOINTS.verifyPin, payload, getAuthOptions())
+		.catch(normalizeWalletError);
 }
 
 export function getMyWalletPrivateKey() {
-	return axiosInstance.get<
-		GenericWalletResponse<string | Record<string, unknown>>
-	>(MY_WALLET_ENDPOINTS.privateKey, getAuthOptions());
+	return axiosInstance
+		.get<GenericWalletResponse<string | Record<string, unknown>>>(MY_WALLET_ENDPOINTS.privateKey, getAuthOptions())
+		.catch(normalizeWalletError);
 }
 
 export function transferFromMyWallet(payload: TransferFromWalletPayload, idempotencyKey?: string) {
-	return axiosInstance.post<GenericWalletResponse>(
-		MY_WALLET_ENDPOINTS.transfer,
-		payload,
-		getAuthOptions(idempotencyKey),
-	);
+	return axiosInstance
+		.post<GenericWalletResponse>(MY_WALLET_ENDPOINTS.transfer, payload, getAuthOptions(idempotencyKey))
+		.catch(normalizeWalletError);
 }
 
 export function extractWalletPrivateKey(

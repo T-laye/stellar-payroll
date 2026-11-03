@@ -6,6 +6,7 @@ import { Button } from "@repo/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { Avatar } from "@/components/person";
 import { SectionCard, DetailList } from "@/components/section-card";
+import { CompanyMemberships } from "@/features/auth/components/company-memberships";
 import { PersonalWalletManager } from "@/features/wallets/components/personal-wallet-manager";
 import { getUserDisplayName, useAuthStore } from "@/features/auth/store";
 import { formatDate, formatFrequency } from "@/lib/format";
@@ -55,6 +56,7 @@ export default function ProfilePage() {
 				</SectionCard>
 				<MyPay />
 				<PersonalWalletManager />
+				<CompanyMemberships />
 			</div>
 		</>
 	);

@@ -35,6 +35,9 @@ route("GET", "/companies/:id", "user", (ctx) => {
 route("PATCH", "/companies/:id", "user", (ctx) => {
 	const id = companyOf(ctx);
 	need(ctx, "company:update");
+	if (ctx.body.website !== undefined && !/^https?:\/\/[^\s.]+\.\S{2,}$/i.test(str(ctx.body.website))) {
+		throw new HttpError(422, "Website must be a valid URL");
+	}
 	const company = update((db) => {
 		const c = found(
 			db.companies.find((x) => x.id === id),
@@ -86,6 +89,7 @@ route("POST", "/companies/:id/employees", "user", (ctx) => {
 	const b = ctx.body;
 	required(b, "first_name", "last_name", "email", "country", "employment_type", "salary_amount", "salary_currency", "start_date");
 	requireTimestamp(b, "start_date");
+	if (!/^[A-Za-z]{2}$/.test(str(b.country))) throw new HttpError(422, "Country must be a two-letter country code such as NG or US");
 	if (read().employees.some((e) => e.company_id === id && e.email.toLowerCase() === str(b.email).toLowerCase())) {
 		throw new HttpError(409, "an employee with this email already exists");
 	}

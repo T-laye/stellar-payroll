@@ -2,7 +2,7 @@ import axios from "axios";
 import { ApiError, axiosInstance } from "@/lib/api/client";
 import { getStoredAuthHeaders, type StoredAuthSession } from "@/features/auth/session";
 import { ChangeVerificationEmailFormData, ForgotPasswordFormData, ResetPasswordFormData, SigninFormData, SignupFormData } from "@/features/auth/schema";
-import type { AuthResponse } from "@/features/auth/types";
+import type { AuthResponse, CompanyMembership } from "@/features/auth/types";
 
 export const AUTH_ENDPOINTS = {
 	SIGN_UP: "/auth/register",
@@ -16,6 +16,10 @@ export const AUTH_ENDPOINTS = {
 	CHANGE_VERIFICATION_EMAIL: "/auth/change-verification-email",
 	VERIFY_EMAIL: "/auth/verify-email",
 	SIGN_OUT: "/auth/logout",
+	INVITATIONS: "/auth/invitations",
+	ACCEPT_INVITATION: "/auth/invitations/accept",
+	SWITCH_COMPANY: "/auth/switch-company",
+	MEMBERSHIPS: "/auth/memberships",
 } as const;
 
 /** "an account with this email already exists" → "An account with this email already exists". */
@@ -57,7 +61,7 @@ function normalizeAuthError(error: unknown): never {
 	throw new ApiError("Request failed", 500, error);
 }
 
-export async function signIn(payload: SigninFormData) {
+export async function signIn(payload: SigninFormData & { company_id?: string }) {
 	try {
 		const response = await axiosInstance.post<AuthResponse>(
 			AUTH_ENDPOINTS.SIGN_IN,
@@ -148,6 +152,67 @@ export async function verifyEmail(payload: { token: string; email?: string }) {
 export async function completeProfile(payload: { token: string; password: string }) {
 	try {
 		const response = await axiosInstance.post<AuthResponse>(AUTH_ENDPOINTS.COMPLETE_PROFILE, payload);
+		return response.data;
+	} catch (error) {
+		normalizeAuthError(error);
+	}
+}
+
+export async function changePassword(payload: { current_password: string; new_password: string }) {
+	try {
+		await axiosInstance.patch(AUTH_ENDPOINTS.CHANGE_PASSWORD, payload, { headers: getStoredAuthHeaders() });
+	} catch (error) {
+		normalizeAuthError(error);
+	}
+}
+
+/** Pending invites from other companies, sent to the signed-in person's email. */
+export async function getInvitations() {
+	try {
+		const response = await axiosInstance.get<{ data: CompanyMembership[] | null }>(AUTH_ENDPOINTS.INVITATIONS, {
+			headers: getStoredAuthHeaders(),
+		});
+		return response.data.data ?? [];
+	} catch (error) {
+		normalizeAuthError(error);
+	}
+}
+
+/** Joins the company without a new password and returns the person's updated memberships. */
+export async function acceptInvitation(companyId: string) {
+	try {
+		const response = await axiosInstance.post<{ data: CompanyMembership[] | { companies?: CompanyMembership[] } | null }>(
+			AUTH_ENDPOINTS.ACCEPT_INVITATION,
+			{ company_id: companyId },
+			{ headers: getStoredAuthHeaders() },
+		);
+		const data = response.data.data;
+		return Array.isArray(data) ? data : (data?.companies ?? []);
+	} catch (error) {
+		normalizeAuthError(error);
+	}
+}
+
+/** Ends the person's membership and returns the ones left. Leaving the current company also ends this session. */
+export async function leaveCompany(companyId: string) {
+	try {
+		const response = await axiosInstance.delete<{ data: CompanyMembership[] | null }>(`${AUTH_ENDPOINTS.MEMBERSHIPS}/${companyId}`, {
+			headers: getStoredAuthHeaders(),
+		});
+		return response.data.data ?? [];
+	} catch (error) {
+		normalizeAuthError(error);
+	}
+}
+
+/** Ends the calling session and returns a new one for that company: the caller must keep the new tokens. */
+export async function switchCompany(companyId: string) {
+	try {
+		const response = await axiosInstance.post<AuthResponse>(
+			AUTH_ENDPOINTS.SWITCH_COMPANY,
+			{ company_id: companyId },
+			{ headers: getStoredAuthHeaders() },
+		);
 		return response.data;
 	} catch (error) {
 		normalizeAuthError(error);

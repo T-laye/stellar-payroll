@@ -21,7 +21,7 @@ import { ConnectWalletButton } from "@/features/wallets/components/connect-walle
 import { useGroups } from "@/features/payroll/hooks";
 import { errorMessage, newIdempotencyKey } from "@/lib/api/request";
 import { toInputAmount } from "@/lib/decimal";
-import { countries } from "@/lib/constants";
+import { countries, countryCode } from "@/lib/constants";
 import { toDateInput } from "@/lib/format";
 import { routes } from "@/lib/routes";
 import { useMountTime } from "@/lib/use-now";
@@ -54,7 +54,7 @@ export function EmployeeForm({ employee }: { employee?: CompanyEmployee }) {
 			job_title: employee?.job_title ?? "",
 			department: employee?.department ?? "",
 			employment_type: employee?.employment_type ?? "FULL_TIME",
-			country: employee?.country ?? "",
+			country: countryCode(employee?.country ?? ""),
 			phone: employee?.phone ?? "",
 			start_date: employee?.start_date?.slice(0, 10) ?? toDateInput(now),
 			wallet_address: employee?.wallet?.stellar_address ?? "",
@@ -91,7 +91,7 @@ export function EmployeeForm({ employee }: { employee?: CompanyEmployee }) {
 				toast.success("Employee updated");
 				router.push(routes.employees.detail(employee.id));
 			} else {
-				const created = await create.mutateAsync({
+				const { employee: created, problems } = await create.mutateAsync({
 					payload: {
 						...shared,
 						email: values.email,
@@ -104,9 +104,13 @@ export function EmployeeForm({ employee }: { employee?: CompanyEmployee }) {
 					invite,
 					key: createKey,
 				});
-				toast.success(`${first_name} ${last_name} added`, {
-					description: invite ? "They'll get an email to set their password and see their payments." : undefined,
-				});
+				if (problems.length) {
+					toast.warning(`${first_name} ${last_name} added, with a problem to fix`, { description: problems.join(" ") });
+				} else {
+					toast.success(`${first_name} ${last_name} added`, {
+						description: invite ? "They'll get an email to set their password and see their payments." : undefined,
+					});
+				}
 				router.push(routes.employees.detail(created.id));
 			}
 		} catch (error) {
@@ -295,8 +299,8 @@ export function EmployeeForm({ employee }: { employee?: CompanyEmployee }) {
 										</SelectTrigger>
 										<SelectContent className="max-h-72">
 											{countries.map((c) => (
-												<SelectItem key={c} value={c}>
-													{c}
+												<SelectItem key={c.code} value={c.code}>
+													{c.name}
 												</SelectItem>
 											))}
 										</SelectContent>
